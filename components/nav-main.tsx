@@ -1,20 +1,10 @@
 "use client"
 
-import { CollapsibleContent } from "@/components/ui/collapsible"
-
-import { CollapsibleTrigger } from "@/components/ui/collapsible"
-
-import { Collapsible } from "@/components/ui/collapsible"
-
-import { ChevronRight, UserPlus, Globe, type LucideIcon } from "lucide-react"
+import { ChevronRight, UserPlus, Globe, Link, type LucideIcon } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
-\
-import Link
-as
-NextLink
-from
-;("next/link")
+import NextLink from "next/link"
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
   SidebarGroupLabel,
