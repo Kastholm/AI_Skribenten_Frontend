@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, UserPlus, type LucideIcon } from "lucide-react"
+import { ChevronRight, UserPlus, Globe, type LucideIcon } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
@@ -33,6 +33,20 @@ export function NavMain({
   const { user } = useAuth()
   const isAdmin = user?.role === "admin"
 
+  // Create admin items array
+  const adminItems = [
+    {
+      title: "Add User",
+      url: "/add-user",
+      icon: UserPlus,
+    },
+    {
+      title: "Add Site",
+      url: "/add-site",
+      icon: Globe,
+    },
+  ]
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -64,16 +78,33 @@ export function NavMain({
           </Collapsible>
         ))}
 
-        {/* Add User button - only visible for admin users */}
+        {/* Admin dropdown - only visible for admin users */}
         {isAdmin && (
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Add User">
-              <Link href="/add-user">
-                <UserPlus />
-                <span>Add User</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
+          <Collapsible asChild className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton tooltip="Admin">
+                  <UserPlus />
+                  <span>Admin</span>
+                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {adminItems.map((adminItem) => (
+                    <SidebarMenuSubItem key={adminItem.title}>
+                      <SidebarMenuSubButton asChild>
+                        <Link href={adminItem.url}>
+                          <adminItem.icon className="h-4 w-4" />
+                          <span>{adminItem.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
         )}
       </SidebarMenu>
     </SidebarGroup>
