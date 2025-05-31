@@ -155,7 +155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       try {
         // Fetch user sites
-        const userSitesResponse = await fetch(`${API_HOST}/users/sites?user_id=${user.id}`, {
+        const userSitesResponse = await fetch(`${API_HOST}/sites?user_id=${user.id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -206,6 +206,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     .filter(Boolean) // Remove null values
 
                   setUserSites(sitesWithRoles)
+                  console.log("Sites with roles:", sitesWithRoles)
+                  console.log("Sites as teams:", sitesAsTeams)
 
                   // Set first site as active by default
                   if (sitesWithRoles.length > 0) {
@@ -231,8 +233,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Prepare data for components
   const userData = {
     name: user?.name || "User",
-    email: "user@example.com", // You can add email to user data later
-    avatar: "/placeholder.svg", // Keep placeholder for now
+    email: user?.username || "user", // Use username instead of placeholder
+    avatar: "/placeholder.svg",
   }
 
   // Convert user sites to teams format for TeamSwitcher
@@ -246,7 +248,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         {userSites.length > 0 ? (
-          <TeamSwitcher teams={sitesAsTeams} />
+          <TeamSwitcher
+            teams={sitesAsTeams}
+            onTeamChange={(teamIndex) => {
+              const selectedSite = userSites[teamIndex]
+              setActiveSite(selectedSite)
+              console.log("Active site changed to:", selectedSite)
+            }}
+          />
         ) : (
           <div className="flex items-center gap-2 px-2 py-1.5">
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">

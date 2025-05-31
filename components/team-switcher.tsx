@@ -16,15 +16,33 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/c
 
 export function TeamSwitcher({
   teams,
+  onTeamChange,
 }: {
   teams: {
     name: string
     logo: React.ElementType
     plan: string
   }[]
+  onTeamChange?: (teamIndex: number) => void
 }) {
   const { isMobile } = useSidebar()
   const [activeTeam, setActiveTeam] = React.useState(teams[0])
+
+  const handleTeamChange = (team: (typeof teams)[0], index: number) => {
+    setActiveTeam(team)
+    onTeamChange?.(index)
+  }
+
+  // Update active team when teams change
+  React.useEffect(() => {
+    if (teams.length > 0 && !activeTeam) {
+      setActiveTeam(teams[0])
+    }
+  }, [teams, activeTeam])
+
+  if (!activeTeam && teams.length > 0) {
+    return null // Loading state
+  }
 
   return (
     <SidebarMenu>
@@ -51,22 +69,25 @@ export function TeamSwitcher({
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
           >
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Teams</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Sites</DropdownMenuLabel>
             {teams.map((team, index) => (
-              <DropdownMenuItem key={team.name} onClick={() => setActiveTeam(team)} className="gap-2 p-2">
+              <DropdownMenuItem key={team.name} onClick={() => handleTeamChange(team, index)} className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-sm border">
                   <team.logo className="size-4 shrink-0" />
                 </div>
-                {team.name}
+                <div className="flex flex-col">
+                  <span className="font-medium">{team.name}</span>
+                  <span className="text-xs text-muted-foreground">{team.plan}</span>
+                </div>
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
+            <DropdownMenuItem className="gap-2 p-2" disabled>
               <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                 <Plus className="size-4" />
               </div>
-              <div className="font-medium text-muted-foreground">Add team</div>
+              <div className="font-medium text-muted-foreground">Contact admin for more sites</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
