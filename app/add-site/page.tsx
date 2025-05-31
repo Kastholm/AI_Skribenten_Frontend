@@ -47,6 +47,36 @@ export default function AddSitePage() {
     }
   }
 
+  // Function to convert file to base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        if (typeof reader.result === "string") {
+          // Remove the data:image/...;base64, prefix
+          const base64 = reader.result.split(",")[1]
+          resolve(base64)
+        } else {
+          reject(new Error("Failed to convert file to base64"))
+        }
+      }
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
+  // Function to validate domain format
+  const isValidDomain = (domain: string): boolean => {
+    // Remove protocol and www if present
+    let cleanDomain = domain.toLowerCase()
+    cleanDomain = cleanDomain.replace(/^https?:\/\//, "")
+    cleanDomain = cleanDomain.replace(/^www\./, "")
+
+    // Check if it matches domain pattern (name.tld)
+    const domainPattern = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.[a-zA-Z]{2,}$/
+    return domainPattern.test(cleanDomain)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -59,17 +89,33 @@ export default function AddSitePage() {
       return
     }
 
+    // Validate domain format
+    if (!isValidDomain(formData.pageurl)) {
+      setError("Please enter a valid domain (e.g., example.com, site.dk)")
+      setIsLoading(false)
+      return
+    }
+
     try {
-      // Create a FormData object to send the file and other form data
-      const formDataToSend = new FormData()
-      formDataToSend.append("name", formData.name)
-      formDataToSend.append("description", formData.description)
-      formDataToSend.append("pageurl", formData.pageurl)
-      formDataToSend.append("logo", logoFile)
+      // Convert file to base64
+      const logoBase64 = await fileToBase64(logoFile)
+
+      // Convert base64 to bytes array for the API
+      const logoBytes = Array.from(atob(logoBase64), (c) => c.charCodeAt(0))
+
+      const requestData = {
+        name: formData.name,
+        description: formData.description,
+        pageurl: formData.pageurl,
+        logo: logoBytes,
+      }
 
       const response = await fetch(`${API_HOST}/sites/add_site`, {
         method: "POST",
-        body: formDataToSend, // No Content-Type header needed, browser sets it with boundary
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestData),
       })
 
       const data = await response.json()
@@ -86,7 +132,7 @@ export default function AddSitePage() {
           fileInputRef.current.value = ""
         }
       } else {
-        setError(data.error || "Failed to add site")
+        setError(data.detail || data.error || "Failed to add site")
       }
     } catch (error) {
       console.error("Site creation error:", error)
@@ -139,16 +185,18 @@ export default function AddSitePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pageurl">Page URL</Label>
+                      <Label htmlFor="pageurl">Domain</Label>
                       <Input
                         id="pageurl"
                         name="pageurl"
-                        type="url"
-                        placeholder="https://example.com"
+                        placeholder="example.com"
                         value={formData.pageurl}
                         onChange={handleChange}
                         required
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Enter domain without protocol (e.g., example.com, site.dk, domain.de)
+                      </p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="logo">Logo</Label>
@@ -174,10 +222,10 @@ export default function AddSitePage() {
                         rows={4}
                         required
                       />
-                      <Alert variant="warning" className="bg-amber-50">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          The description is important as it will be used in AI prompts for this site.
+                      <Alert className="bg-amber-50 border-amber-200">
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800">
+                          Beskrivelsen er vigtig da den indgår i AI prompten til siden.
                         </AlertDescription>
                       </Alert>
                     </div>
