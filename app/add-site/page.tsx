@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import AdminRoute from "../components/admin-route"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -21,20 +21,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function AddSitePage() {
   const [formData, setFormData] = useState({
     name: "",
-    logourl: "",
+    pageurl: "",
     description: "",
   })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setLogoFile(e.target.files[0])
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,13 +53,23 @@ export default function AddSitePage() {
     setSuccess("")
     setIsLoading(true)
 
+    if (!logoFile) {
+      setError("Please select a logo file")
+      setIsLoading(false)
+      return
+    }
+
     try {
+      // Create a FormData object to send the file and other form data
+      const formDataToSend = new FormData()
+      formDataToSend.append("name", formData.name)
+      formDataToSend.append("description", formData.description)
+      formDataToSend.append("pageurl", formData.pageurl)
+      formDataToSend.append("logo", logoFile)
+
       const response = await fetch(`${API_HOST}/sites/add_site`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+        body: formDataToSend, // No Content-Type header needed, browser sets it with boundary
       })
 
       const data = await response.json()
@@ -58,9 +78,13 @@ export default function AddSitePage() {
         setSuccess("Site added successfully!")
         setFormData({
           name: "",
-          logourl: "",
+          pageurl: "",
           description: "",
         })
+        setLogoFile(null)
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ""
+        }
       } else {
         setError(data.error || "Failed to add site")
       }
@@ -115,16 +139,29 @@ export default function AddSitePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="logourl">Logo URL</Label>
+                      <Label htmlFor="pageurl">Page URL</Label>
                       <Input
-                        id="logourl"
-                        name="logourl"
+                        id="pageurl"
+                        name="pageurl"
                         type="url"
-                        placeholder="https://example.com/logo.png"
-                        value={formData.logourl}
+                        placeholder="https://example.com"
+                        value={formData.pageurl}
                         onChange={handleChange}
                         required
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="logo">Logo</Label>
+                      <Input
+                        id="logo"
+                        name="logo"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        ref={fileInputRef}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">Upload a logo image for the site</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="description">Description</Label>
@@ -137,6 +174,12 @@ export default function AddSitePage() {
                         rows={4}
                         required
                       />
+                      <Alert variant="warning" className="bg-amber-50">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          The description is important as it will be used in AI prompts for this site.
+                        </AlertDescription>
+                      </Alert>
                     </div>
                     {error && <p className="text-sm font-medium text-red-500">{error}</p>}
                     {success && <p className="text-sm font-medium text-green-500">{success}</p>}
