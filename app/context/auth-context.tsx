@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { API_HOST } from "../env"
 
 type User = {
   id: number
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/users/login", {
+      const response = await fetch(`${API_HOST}/users/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -47,7 +48,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, password }),
       })
 
-      const data = await response.json()
+      const rawText = await response.text()
+
+      let data
+      try {
+        data = JSON.parse(rawText)
+      } catch (e) {
+        console.error("Failed to parse JSON response:", e)
+        return { success: false, error: "Invalid response format" }
+      }
 
       if (data.success) {
         setUser(data.user)
