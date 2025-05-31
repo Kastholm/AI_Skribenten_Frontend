@@ -32,7 +32,7 @@ export default function Home() {
       }
 
       try {
-        const response = await fetch(`${API_HOST}/sites?user_id=${user.id}`, {
+        const response = await fetch(`${API_HOST}/sites/${user.id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",

@@ -17,7 +17,6 @@ type Site = {
   name: string
   page_url: string
   description: string
-  logo?: string
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -143,8 +142,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
 
       try {
-        // Fetch user sites
-        const userSitesResponse = await fetch(`${API_HOST}/sites?user_id=${user.id}`, {
+        // Fetch user sites using path parameter
+        const userSitesResponse = await fetch(`${API_HOST}/sites/${user.id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -157,12 +156,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
           if (userSitesData.sites && Array.isArray(userSitesData.sites)) {
             // Map sites data from array format to object format
+            // Backend returns: [id, name, description, page_url]
             const formattedSites: Site[] = userSitesData.sites.map((siteArray: any[]) => ({
               id: siteArray[0],
               name: siteArray[1],
-              logo: siteArray[2], // base64 logo data
-              description: siteArray[3],
-              page_url: siteArray[4],
+              description: siteArray[2],
+              page_url: siteArray[3],
             }))
 
             setUserSites(formattedSites)
