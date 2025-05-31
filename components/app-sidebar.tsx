@@ -12,13 +12,6 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } fr
 import { useAuth } from "@/app/context/auth-context"
 import { API_HOST } from "@/app/env"
 
-type UserSite = {
-  id: number
-  user_id: number
-  site_id: number
-  role: string
-}
-
 type Site = {
   id: number
   name: string
@@ -27,15 +20,11 @@ type Site = {
   logo?: string
 }
 
-type SiteWithRole = Site & {
-  role: string
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user } = useAuth()
-  const [userSites, setUserSites] = useState<SiteWithRole[]>([])
+  const [userSites, setUserSites] = useState<Site[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [activeSite, setActiveSite] = useState<SiteWithRole | null>(null)
+  const [activeSite, setActiveSite] = useState<Site | null>(null)
 
   // Static navigation data
   const navMain = [
@@ -166,55 +155,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           const userSitesData = await userSitesResponse.json()
           console.log("User sites response:", userSitesData)
 
-          if (userSitesData.user_sites && Array.isArray(userSitesData.user_sites)) {
-            // Get site IDs from user_sites
-            const siteIds = userSitesData.user_sites.map((userSite: any[]) => userSite[2]) // site_id is at index 2
+          if (userSitesData.sites && Array.isArray(userSitesData.sites)) {
+            // Map sites data from array format to object format
+            const formattedSites: Site[] = userSitesData.sites.map((siteArray: any[]) => ({
+              id: siteArray[0],
+              name: siteArray[1],
+              logo: siteArray[2], // base64 logo data
+              description: siteArray[3],
+              page_url: siteArray[4],
+            }))
 
-            if (siteIds.length > 0) {
-              // Fetch all sites to get site details
-              const sitesResponse = await fetch(`${API_HOST}/sites/all`, {
-                method: "GET",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-              })
+            setUserSites(formattedSites)
+            console.log("Formatted sites:", formattedSites)
 
-              if (sitesResponse.ok) {
-                const sitesData = await sitesResponse.json()
-
-                if (sitesData.sites && Array.isArray(sitesData.sites)) {
-                  // Map user sites with site details and roles
-                  const sitesWithRoles: SiteWithRole[] = userSitesData.user_sites
-                    .map((userSiteArray: any[]) => {
-                      const siteId = userSiteArray[2] // site_id
-                      const role = userSiteArray[3] // role
-
-                      // Find matching site
-                      const siteArray = sitesData.sites.find((site: any[]) => site[0] === siteId)
-
-                      if (siteArray) {
-                        return {
-                          id: siteArray[0],
-                          name: siteArray[1],
-                          description: siteArray[3],
-                          page_url: siteArray[4],
-                          role: role,
-                        }
-                      }
-                      return null
-                    })
-                    .filter(Boolean) // Remove null values
-
-                  setUserSites(sitesWithRoles)
-                  console.log("Sites with roles:", sitesWithRoles)
-                  console.log("Sites as teams:", sitesAsTeams)
-
-                  // Set first site as active by default
-                  if (sitesWithRoles.length > 0) {
-                    setActiveSite(sitesWithRoles[0])
-                  }
-                }
-              }
+            // Set first site as active by default
+            if (formattedSites.length > 0) {
+              setActiveSite(formattedSites[0])
+              console.log("Active site set to:", formattedSites[0])
             }
           }
         } else {
@@ -233,7 +190,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   // Prepare data for components
   const userData = {
     name: user?.name || "User",
-    email: user?.username || "user", // Use username instead of placeholder
+    email: user?.username || "user",
     avatar: "/placeholder.svg",
   }
 
@@ -241,7 +198,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const sitesAsTeams = userSites.map((site) => ({
     name: site.name,
     logo: Globe, // Use Globe icon for all sites for now
-    plan: site.role.charAt(0).toUpperCase() + site.role.slice(1), // Capitalize role (viewer -> Viewer)
+    plan: site.page_url, // Show the domain as the "plan"
   }))
 
   return (

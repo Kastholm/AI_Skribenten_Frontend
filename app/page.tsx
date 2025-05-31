@@ -41,8 +41,8 @@ export default function Home() {
 
         if (response.ok) {
           const data = await response.json()
-          if (data.user_sites && Array.isArray(data.user_sites)) {
-            setUserSites(data.user_sites)
+          if (data.sites && Array.isArray(data.sites)) {
+            setUserSites(data.sites)
           }
         }
       } catch (error) {
