@@ -77,6 +77,35 @@ export default function AddSitePage() {
     return domainPattern.test(cleanDomain)
   }
 
+  // Function to format API error messages
+  const formatErrorMessage = (errorData: any): string => {
+    if (typeof errorData === "string") {
+      return errorData
+    }
+
+    if (errorData?.detail) {
+      if (Array.isArray(errorData.detail)) {
+        // Handle FastAPI validation errors
+        return errorData.detail
+          .map((err: any) => {
+            if (typeof err === "string") return err
+            if (err.msg) return `${err.loc?.join(" → ") || "Field"}: ${err.msg}`
+            return JSON.stringify(err)
+          })
+          .join(", ")
+      }
+      if (typeof errorData.detail === "string") {
+        return errorData.detail
+      }
+    }
+
+    if (errorData?.error) {
+      return typeof errorData.error === "string" ? errorData.error : JSON.stringify(errorData.error)
+    }
+
+    return "An unknown error occurred"
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError("")
@@ -110,6 +139,11 @@ export default function AddSitePage() {
         logo: logoBytes,
       }
 
+      console.log("Sending request data:", {
+        ...requestData,
+        logo: `[${logoBytes.length} bytes]`, // Don't log the actual bytes
+      })
+
       const response = await fetch(`${API_HOST}/sites/add_site`, {
         method: "POST",
         headers: {
@@ -118,7 +152,17 @@ export default function AddSitePage() {
         body: JSON.stringify(requestData),
       })
 
-      const data = await response.json()
+      let data
+      try {
+        data = await response.json()
+      } catch (parseError) {
+        console.error("Failed to parse response as JSON:", parseError)
+        setError("Invalid response from server")
+        setIsLoading(false)
+        return
+      }
+
+      console.log("Response data:", data)
 
       if (response.ok) {
         setSuccess("Site added successfully!")
@@ -132,7 +176,8 @@ export default function AddSitePage() {
           fileInputRef.current.value = ""
         }
       } else {
-        setError(data.detail || data.error || "Failed to add site")
+        const errorMessage = formatErrorMessage(data)
+        setError(errorMessage)
       }
     } catch (error) {
       console.error("Site creation error:", error)
