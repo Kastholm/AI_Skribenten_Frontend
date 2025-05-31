@@ -143,7 +143,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       try {
         // Fetch user sites using path parameter
-        const userSitesResponse = await fetch(`${API_HOST}/sites/${user.id}`, {
+        const userSitesResponse = await fetch(`${API_HOST}/users/sites/${user.id}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
