@@ -82,8 +82,8 @@ export default function LinkUserSitePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch users
-        const usersResponse = await fetch(`${API_HOST}/users/all`, {
+        // Fetch users from /users/info
+        const usersResponse = await fetch(`${API_HOST}/users/info`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -92,13 +92,28 @@ export default function LinkUserSitePage() {
 
         if (usersResponse.ok) {
           const usersData = await usersResponse.json()
-          setUsers(usersData)
+          console.log("Users response:", usersData)
+
+          // Handle the response structure: {"users": [[id, name, username, password, role], ...]}
+          if (usersData.users && Array.isArray(usersData.users)) {
+            const formattedUsers = usersData.users.map((userArray: any[]) => ({
+              id: userArray[0],
+              name: userArray[1],
+              username: userArray[2],
+              // Skip password (userArray[3])
+              role: userArray[4],
+            }))
+            setUsers(formattedUsers)
+          } else {
+            console.error("Unexpected users data format:", usersData)
+            setError("Unexpected users data format")
+          }
         } else {
           console.error("Failed to fetch users")
           setError("Failed to load users")
         }
 
-        // Fetch sites
+        // Fetch sites from /sites/all
         const sitesResponse = await fetch(`${API_HOST}/sites/all`, {
           method: "GET",
           headers: {
@@ -108,7 +123,22 @@ export default function LinkUserSitePage() {
 
         if (sitesResponse.ok) {
           const sitesData = await sitesResponse.json()
-          setSites(sitesData)
+          console.log("Sites response:", sitesData)
+
+          // Handle the response structure: {"sites": [[id, name, logo, description, page_url], ...]}
+          if (sitesData.sites && Array.isArray(sitesData.sites)) {
+            const formattedSites = sitesData.sites.map((siteArray: any[]) => ({
+              id: siteArray[0],
+              name: siteArray[1],
+              // Skip logo (siteArray[2])
+              description: siteArray[3],
+              page_url: siteArray[4],
+            }))
+            setSites(formattedSites)
+          } else {
+            console.error("Unexpected sites data format:", sitesData)
+            setError("Unexpected sites data format")
+          }
         } else {
           console.error("Failed to fetch sites")
           setError("Failed to load sites")
