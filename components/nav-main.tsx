@@ -1,9 +1,20 @@
 "use client"
 
+import { CollapsibleContent } from "@/components/ui/collapsible"
+
+import { CollapsibleTrigger } from "@/components/ui/collapsible"
+
+import { Collapsible } from "@/components/ui/collapsible"
+
 import { ChevronRight, UserPlus, Globe, type LucideIcon } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
+\
+import Link
+as
+NextLink
+from
+;("next/link")
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -14,7 +25,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import Link from "next/link"
 
 export function NavMain({
   items,
@@ -44,6 +54,11 @@ export function NavMain({
       title: "Add Site",
       url: "/add-site",
       icon: Globe,
+    },
+    {
+      title: "Link User Site",
+      url: "/link-user-site",
+      icon: Link,
     },
   ]
 
@@ -94,10 +109,10 @@ export function NavMain({
                   {adminItems.map((adminItem) => (
                     <SidebarMenuSubItem key={adminItem.title}>
                       <SidebarMenuSubButton asChild>
-                        <Link href={adminItem.url}>
-                          <adminItem.icon className="h-4 w-4" />
+                        <NextLink href={adminItem.url}>
+                          {adminItem.icon && <adminItem.icon className="h-4 w-4" />}
                           <span>{adminItem.title}</span>
-                        </Link>
+                        </NextLink>
                       </SidebarMenuSubButton>
                     </SidebarMenuSubItem>
                   ))}
