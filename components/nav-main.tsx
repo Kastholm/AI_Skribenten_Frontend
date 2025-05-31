@@ -1,6 +1,7 @@
 "use client"
 
-import { ChevronRight, type LucideIcon } from "lucide-react"
+import { ChevronRight, UserPlus, type LucideIcon } from "lucide-react"
+import { useAuth } from "@/app/context/auth-context"
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import {
@@ -13,6 +14,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
+import Link from "next/link"
 
 export function NavMain({
   items,
@@ -28,6 +30,9 @@ export function NavMain({
     }[]
   }[]
 }) {
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -58,6 +63,18 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
+
+        {/* Add User button - only visible for admin users */}
+        {isAdmin && (
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Add User">
+              <Link href="/add-user">
+                <UserPlus />
+                <span>Add User</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        )}
       </SidebarMenu>
     </SidebarGroup>
   )
