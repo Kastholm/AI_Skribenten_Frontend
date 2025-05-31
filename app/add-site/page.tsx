@@ -54,7 +54,7 @@ export default function AddSitePage() {
       reader.readAsDataURL(file)
       reader.onload = () => {
         if (typeof reader.result === "string") {
-          // Remove the data:image/...;base64, prefix
+          // Remove the data:image/...;base64, prefix and return just the base64
           const base64 = reader.result.split(",")[1]
           resolve(base64)
         } else {
@@ -126,22 +126,19 @@ export default function AddSitePage() {
     }
 
     try {
-      // Convert file to base64
+      // Convert file to base64 (much simpler now!)
       const logoBase64 = await fileToBase64(logoFile)
-
-      // Convert base64 to bytes array for the API
-      const logoBytes = Array.from(atob(logoBase64), (c) => c.charCodeAt(0))
 
       const requestData = {
         name: formData.name,
         description: formData.description,
         pageurl: formData.pageurl,
-        logo: logoBytes,
+        logo: logoBase64, // Send as base64 string
       }
 
       console.log("Sending request data:", {
         ...requestData,
-        logo: `[${logoBytes.length} bytes]`, // Don't log the actual bytes
+        logo: `[base64 string of ${logoBase64.length} characters]`, // Don't log the actual base64
       })
 
       const response = await fetch(`${API_HOST}/sites/add_site`, {
