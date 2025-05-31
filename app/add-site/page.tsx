@@ -27,7 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 export default function AddSitePage() {
   const [formData, setFormData] = useState({
     name: "",
-    pageurl: "",
+    page_url: "", // Changed from pageurl to page_url
     description: "",
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -119,20 +119,21 @@ export default function AddSitePage() {
     }
 
     // Validate domain format
-    if (!isValidDomain(formData.pageurl)) {
+    if (!isValidDomain(formData.page_url)) {
+      // Changed from pageurl to page_url
       setError("Please enter a valid domain (e.g., example.com, site.dk)")
       setIsLoading(false)
       return
     }
 
     try {
-      // Convert file to base64 (much simpler now!)
+      // Convert file to base64
       const logoBase64 = await fileToBase64(logoFile)
 
       const requestData = {
         name: formData.name,
         description: formData.description,
-        pageurl: formData.pageurl,
+        page_url: formData.page_url, // Changed from pageurl to page_url
         logo: logoBase64, // Send as base64 string
       }
 
@@ -165,7 +166,7 @@ export default function AddSitePage() {
         setSuccess("Site added successfully!")
         setFormData({
           name: "",
-          pageurl: "",
+          page_url: "", // Changed from pageurl to page_url
           description: "",
         })
         setLogoFile(null)
@@ -227,12 +228,12 @@ export default function AddSitePage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="pageurl">Domain</Label>
+                      <Label htmlFor="page_url">Domain</Label> {/* Changed from pageurl to page_url */}
                       <Input
-                        id="pageurl"
-                        name="pageurl"
+                        id="page_url" // Changed from pageurl to page_url
+                        name="page_url" // Changed from pageurl to page_url
                         placeholder="example.com"
-                        value={formData.pageurl}
+                        value={formData.page_url} // Changed from pageurl to page_url
                         onChange={handleChange}
                         required
                       />
