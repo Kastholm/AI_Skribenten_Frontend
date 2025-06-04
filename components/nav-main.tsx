@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, UserPlus, Globe, Link, type LucideIcon } from "lucide-react"
+import { ChevronRight, UserPlus, Globe, Link, MessageSquare, type LucideIcon } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
 import NextLink from "next/link"
 
@@ -82,6 +82,16 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
+
+        {/* Prompts link - visible for all users */}
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild tooltip="Prompts">
+            <NextLink href="/prompts">
+              <MessageSquare className="h-4 w-4" />
+              <span>Prompts</span>
+            </NextLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
 
         {/* Admin dropdown - only visible for admin users */}
         {isAdmin && (
