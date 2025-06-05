@@ -19,10 +19,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Calendar, Clock, Loader2, CheckCircle, ExternalLink } from "lucide-react"
+import { AlertCircle, Calendar, Clock, Loader2, CheckCircle, ExternalLink, FileText } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 type Article = {
   id: number
@@ -34,7 +35,7 @@ type Article = {
   site_id: number
   user_id: number
   category_id: number
-  scheduled_publish_at: string
+  scheduled_publish_at: string | null
   created_at: string
 }
 
@@ -46,9 +47,12 @@ export default function ArtiklerPage() {
   const [validationSuccess, setValidationSuccess] = useState("")
   const [todaysArticles, setTodaysArticles] = useState<Article[]>([])
   const [weekArticles, setWeekArticles] = useState<Article[]>([])
+  const [allArticles, setAllArticles] = useState<Article[]>([])
   const [isLoadingToday, setIsLoadingToday] = useState(true)
   const [isLoadingWeek, setIsLoadingWeek] = useState(true)
+  const [isLoadingAll, setIsLoadingAll] = useState(true)
   const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState("scheduled")
 
   // URL validation function
   const isValidUrl = (url: string): boolean => {
@@ -57,11 +61,12 @@ export default function ArtiklerPage() {
     cleanUrl = cleanUrl.replace(/^https?:\/\//, "")
     cleanUrl = cleanUrl.replace(/^www\./, "")
 
-    // Check if it contains a valid TLD
-    const tldPattern =
-      /\.(com|org|net|edu|gov|mil|int|dk|de|uk|fr|es|it|nl|se|no|fi|pl|ru|jp|cn|au|ca|br|mx|ar|cl|co|pe|ve|ec|bo|py|uy|gf|sr|gy|fk|gs|sh|ac|io|ai|ag|bb|bz|dm|gd|gy|ht|jm|kn|lc|ms|tc|tt|vc|vg|vi|as|ck|fj|fm|gu|ki|mh|mp|nc|nf|nr|nu|pf|pg|pn|pw|sb|tk|to|tv|vu|wf|ws|cc|cx|hm|nz|tf|aq)($|\/)/
+    // Check if it contains a valid domain with TLD, allowing paths after
+    // This regex checks for: domain.tld followed by optional path
+    const urlPattern =
+      /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.(com|org|net|edu|gov|mil|int|dk|de|uk|fr|es|it|nl|se|no|fi|pl|ru|jp|cn|au|ca|br|mx|ar|cl|co|pe|ve|ec|bo|py|uy|gf|sr|gy|fk|gs|sh|ac|io|ai|ag|bb|bz|dm|gd|gy|ht|jm|kn|lc|ms|tc|tt|vc|vg|vi|as|ck|fj|fm|gu|ki|mh|mp|nc|nf|nr|nu|pf|pg|pn|pw|sb|tk|to|tv|vu|wf|ws|cc|cx|hm|nz|tf|aq)(\/.*)?$/
 
-    return tldPattern.test(cleanUrl)
+    return urlPattern.test(cleanUrl)
   }
 
   // Handle URL validation
@@ -166,11 +171,44 @@ export default function ArtiklerPage() {
           setWeekArticles(formattedWeekArticles)
         }
       }
+
+      // Fetch all articles
+      const allResponse = await fetch(`${API_HOST}/articles/all_articles/${siteId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (allResponse.ok) {
+        const allData = await allResponse.json()
+        if (Array.isArray(allData)) {
+          // Map articles data from array format to object format
+          const formattedAllArticles: Article[] = allData.map((articleArray: any[]) => ({
+            id: articleArray[0],
+            title: articleArray[1],
+            teaser: articleArray[2],
+            content: articleArray[3],
+            img: articleArray[4],
+            url: articleArray[5],
+            site_id: articleArray[6],
+            user_id: articleArray[7],
+            category_id: articleArray[8],
+            scheduled_publish_at: articleArray[9],
+            created_at: articleArray[10],
+          }))
+
+          // Filter articles without scheduled_publish_at
+          const unscheduledArticles = formattedAllArticles.filter((article) => !article.scheduled_publish_at)
+          setAllArticles(unscheduledArticles)
+        }
+      }
     } catch (error) {
       console.error("Error fetching articles:", error)
     } finally {
       setIsLoadingToday(false)
       setIsLoadingWeek(false)
+      setIsLoadingAll(false)
     }
   }
 
@@ -197,12 +235,14 @@ export default function ArtiklerPage() {
           } else {
             setIsLoadingToday(false)
             setIsLoadingWeek(false)
+            setIsLoadingAll(false)
           }
         }
       } catch (error) {
         console.error("Error fetching user sites:", error)
         setIsLoadingToday(false)
         setIsLoadingWeek(false)
+        setIsLoadingAll(false)
       }
     }
 
@@ -210,7 +250,8 @@ export default function ArtiklerPage() {
   }, [user?.id])
 
   // Format date string
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Ikke planlagt"
     const date = new Date(dateString)
     return date.toLocaleDateString("da-DK", {
       year: "numeric",
@@ -244,7 +285,7 @@ export default function ArtiklerPage() {
           <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
             {/* URL Validation Section */}
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <CardTitle>Valider Artikel URL</CardTitle>
                 <CardDescription>Indtast en URL for at validere og behandle artiklen</CardDescription>
               </CardHeader>
@@ -292,112 +333,180 @@ export default function ArtiklerPage() {
               </CardContent>
             </Card>
 
-            {/* Articles Lists */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {/* Today's Articles */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    Dagens Artikler
-                  </CardTitle>
-                  <CardDescription>Artikler planlagt til i dag</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingToday ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : todaysArticles.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
-                      <p className="text-muted-foreground">Ingen artikler planlagt til i dag</p>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[300px] pr-4">
-                      <div className="space-y-3">
-                        {todaysArticles.map((article) => (
-                          <Card key={article.id} className="p-3">
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between">
-                                <h4 className="font-medium text-sm leading-tight">{article.title}</h4>
-                                <Badge variant="secondary" className="ml-2 text-xs">
-                                  {formatDate(article.scheduled_publish_at)}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">{article.teaser}</p>
-                              {article.url && (
-                                <a
-                                  href={article.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  Se artikel
-                                </a>
-                              )}
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
+            {/* Articles Tabs */}
+            <Tabs defaultValue="scheduled" value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="scheduled">Planlagte Artikler</TabsTrigger>
+                <TabsTrigger value="unscheduled">Ikke-Planlagte Artikler</TabsTrigger>
+              </TabsList>
 
-              {/* Week's Articles */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Ugens Artikler
-                  </CardTitle>
-                  <CardDescription>Artikler planlagt for denne uge</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingWeek ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  ) : weekArticles.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                      <Clock className="h-12 w-12 text-muted-foreground mb-2" />
-                      <p className="text-muted-foreground">Ingen artikler planlagt for denne uge</p>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[300px] pr-4">
-                      <div className="space-y-3">
-                        {weekArticles.map((article) => (
-                          <Card key={article.id} className="p-3">
-                            <div className="space-y-2">
-                              <div className="flex items-start justify-between">
-                                <h4 className="font-medium text-sm leading-tight">{article.title}</h4>
-                                <Badge variant="outline" className="ml-2 text-xs">
-                                  {formatDate(article.scheduled_publish_at)}
-                                </Badge>
-                              </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">{article.teaser}</p>
-                              {article.url && (
-                                <a
-                                  href={article.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  Se artikel
-                                </a>
-                              )}
-                            </div>
-                          </Card>
-                        ))}
+              {/* Scheduled Articles Tab */}
+              <TabsContent value="scheduled" className="space-y-4">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  {/* Today's Articles */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Dagens Artikler
+                      </CardTitle>
+                      <CardDescription>Artikler planlagt til i dag</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingToday ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : todaysArticles.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                          <Calendar className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground">Ingen artikler planlagt til i dag</p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="h-[250px] pr-4">
+                          <div className="space-y-2">
+                            {todaysArticles.map((article) => (
+                              <Card key={article.id} className="p-2">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-sm leading-tight truncate">{article.title}</h4>
+                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                      {article.teaser}
+                                    </p>
+                                    {article.url && (
+                                      <a
+                                        href={article.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Se artikel
+                                      </a>
+                                    )}
+                                  </div>
+                                  <Badge variant="secondary" className="ml-2 text-xs shrink-0">
+                                    {formatDate(article.scheduled_publish_at)}
+                                  </Badge>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Week's Articles */}
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Ugens Artikler
+                      </CardTitle>
+                      <CardDescription>Artikler planlagt for denne uge</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingWeek ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : weekArticles.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-6 text-center">
+                          <Clock className="h-10 w-10 text-muted-foreground mb-2" />
+                          <p className="text-muted-foreground">Ingen artikler planlagt for denne uge</p>
+                        </div>
+                      ) : (
+                        <ScrollArea className="h-[250px] pr-4">
+                          <div className="space-y-2">
+                            {weekArticles.map((article) => (
+                              <Card key={article.id} className="p-2">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-sm leading-tight truncate">{article.title}</h4>
+                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                      {article.teaser}
+                                    </p>
+                                    {article.url && (
+                                      <a
+                                        href={article.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                      >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Se artikel
+                                      </a>
+                                    )}
+                                  </div>
+                                  <Badge variant="outline" className="ml-2 text-xs shrink-0">
+                                    {formatDate(article.scheduled_publish_at)}
+                                  </Badge>
+                                </div>
+                              </Card>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              {/* Unscheduled Articles Tab */}
+              <TabsContent value="unscheduled">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Ikke-Planlagte Artikler
+                    </CardTitle>
+                    <CardDescription>Artikler uden planlagt udgivelsesdato</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingAll ? (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                       </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                    ) : allArticles.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-6 text-center">
+                        <FileText className="h-10 w-10 text-muted-foreground mb-2" />
+                        <p className="text-muted-foreground">Ingen ikke-planlagte artikler fundet</p>
+                      </div>
+                    ) : (
+                      <ScrollArea className="h-[400px] pr-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {allArticles.map((article) => (
+                            <Card key={article.id} className="p-2">
+                              <div className="space-y-1">
+                                <h4 className="font-medium text-sm leading-tight truncate">{article.title}</h4>
+                                <p className="text-xs text-muted-foreground line-clamp-1">{article.teaser}</p>
+                                <div className="flex items-center justify-between">
+                                  <Badge variant="outline" className="text-xs">
+                                    Oprettet: {new Date(article.created_at).toLocaleDateString("da-DK")}
+                                  </Badge>
+                                  {article.url && (
+                                    <a
+                                      href={article.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Se artikel
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
           </div>
         </SidebarInset>
       </SidebarProvider>
