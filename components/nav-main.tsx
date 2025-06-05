@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, UserPlus, Globe, Link, MessageSquare, type LucideIcon } from "lucide-react"
+import { ChevronRight, UserPlus, Globe, Link, MessageSquare, FileText, type LucideIcon } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
 import NextLink from "next/link"
 
@@ -82,6 +82,16 @@ export function NavMain({
             </SidebarMenuItem>
           </Collapsible>
         ))}
+
+        {/* Artikler link - visible for all users */}
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild tooltip="Artikler">
+            <NextLink href="/artikler">
+              <FileText className="h-4 w-4" />
+              <span>Artikler</span>
+            </NextLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
 
         {/* Prompts link - visible for all users */}
         <SidebarMenuItem>
