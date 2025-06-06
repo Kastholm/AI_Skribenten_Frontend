@@ -60,13 +60,13 @@ export default function ArtiklerPage() {
     setIsValidating(true)
 
     try {
-      // Encode the URL to handle special characters
-      const encodedUrl = encodeURIComponent(url)
-      const response = await fetch(`${API_HOST}/articles/validate/${encodedUrl}`, {
+      // Send URL directly in request body instead of URL encoding
+      const response = await fetch(`${API_HOST}/articles/validate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        body: JSON.stringify({ url: url }),
       })
 
       if (response.ok) {
