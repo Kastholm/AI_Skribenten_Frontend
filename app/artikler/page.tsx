@@ -57,11 +57,6 @@ export default function ArtiklerPage() {
     setValidationError("")
     setValidationSuccess("")
 
-    if (!url.trim()) {
-      setValidationError("Please enter a URL")
-      return
-    }
-
     setIsValidating(true)
 
     try {
@@ -247,7 +242,7 @@ export default function ArtiklerPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle>Valider Artikel URL</CardTitle>
-                <CardDescription>Indtast en URL for at validere og behandle artiklen</CardDescription>
+                <CardDescription>Indtast enhver URL - alle URLs accepteres og behandles af systemet</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
@@ -257,7 +252,7 @@ export default function ArtiklerPage() {
                     </Label>
                     <Input
                       id="url"
-                      placeholder="https://example.com/artikel"
+                      placeholder="Indtast enhver URL..."
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
                       onKeyDown={(e) => {
