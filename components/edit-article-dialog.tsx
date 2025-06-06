@@ -13,9 +13,11 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { AlertCircle, Loader2 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertCircle, Loader2, Copy } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { API_HOST } from "@/app/env"
+import { useAuth } from "@/app/context/auth-context"
 
 type Article = {
   id: number
@@ -34,6 +36,14 @@ type Article = {
   created_at: string
 }
 
+type Prompt = {
+  id: number
+  name: string
+  description: string
+  user_id: number
+  created_at: string
+}
+
 type EditArticleDialogProps = {
   article: Article | null
   isOpen: boolean
@@ -42,6 +52,7 @@ type EditArticleDialogProps = {
 }
 
 export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArticleDialogProps) {
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
     id: 0,
     title: "",
@@ -57,16 +68,20 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     status: "",
     response: "success",
   })
+  const [prompts, setPrompts] = useState<Prompt[]>([])
+  const [selectedPromptId, setSelectedPromptId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoadingPrompts, setIsLoadingPrompts] = useState(false)
   const [error, setError] = useState("")
 
-  // Load article data when dialog opens
+  // Load article data and prompts when dialog opens
   useEffect(() => {
-    if (article && isOpen) {
+    if (article && isOpen && user?.id) {
       fetchArticleDetails(article.id)
+      fetchUserPrompts(user.id)
     }
-  }, [article, isOpen])
+  }, [article, isOpen, user?.id])
 
   const fetchArticleDetails = async (articleId: number) => {
     setIsLoading(true)
@@ -116,8 +131,49 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
+  const fetchUserPrompts = async (userId: number) => {
+    setIsLoadingPrompts(true)
+
+    try {
+      const response = await fetch(`${API_HOST}/prompts/all/${userId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.prompts && Array.isArray(data.prompts)) {
+          // Map prompts data from array format to object format
+          // Backend returns: [id, name, description, user_id, created_at]
+          const formattedPrompts: Prompt[] = data.prompts.map((promptArray: any[]) => ({
+            id: promptArray[0],
+            name: promptArray[1],
+            description: promptArray[2],
+            user_id: promptArray[3],
+            created_at: promptArray[4],
+          }))
+          setPrompts(formattedPrompts)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching prompts:", error)
+    } finally {
+      setIsLoadingPrompts(false)
+    }
+  }
+
   const handleInputChange = (field: string, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handlePromptSelect = (promptId: string) => {
+    setSelectedPromptId(promptId)
+    const selectedPrompt = prompts.find((prompt) => prompt.id.toString() === promptId)
+    if (selectedPrompt) {
+      setFormData((prev) => ({ ...prev, prompt_instruction: selectedPrompt.description }))
+    }
   }
 
   const handleSave = async () => {
@@ -176,6 +232,8 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       status: "",
       response: "success",
     })
+    setPrompts([])
+    setSelectedPromptId("")
     setError("")
     onClose()
   }
@@ -227,13 +285,41 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="prompt">Prompt Instruktion</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="prompt">Prompt Instruktion</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="prompt-select" className="text-sm text-muted-foreground">
+                    Vælg fra dine prompts:
+                  </Label>
+                  <Select value={selectedPromptId} onValueChange={handlePromptSelect} disabled={isLoadingPrompts}>
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder={isLoadingPrompts ? "Indlæser..." : "Vælg prompt"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prompts.map((prompt) => (
+                        <SelectItem key={prompt.id} value={prompt.id.toString()}>
+                          <div className="flex items-center gap-2">
+                            <Copy className="h-3 w-3" />
+                            <span className="truncate max-w-[150px]">{prompt.name}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <Textarea
                 id="prompt"
                 value={formData.prompt_instruction}
                 onChange={(e) => handleInputChange("prompt_instruction", e.target.value)}
                 rows={3}
+                placeholder="Skriv din prompt instruktion her, eller vælg en eksisterende prompt ovenfor"
               />
+              {selectedPromptId && (
+                <div className="text-xs text-muted-foreground">
+                  Prompt kopieret fra: {prompts.find((p) => p.id.toString() === selectedPromptId)?.name}
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-4">
