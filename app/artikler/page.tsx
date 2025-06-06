@@ -60,13 +60,16 @@ export default function ArtiklerPage() {
     setIsValidating(true)
 
     try {
-      // Send URL directly in request body instead of URL encoding
-      const response = await fetch(`${API_HOST}/articles/validate`, {
+      // Encode the URL to handle special characters
+      const encodedUrl = encodeURIComponent(url)
+      console.log("Sending URL:", url)
+      console.log("Encoded URL:", encodedUrl)
+
+      const response = await fetch(`${API_HOST}/articles/validate/${encodedUrl}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: url }),
       })
 
       if (response.ok) {
@@ -79,7 +82,8 @@ export default function ArtiklerPage() {
           fetchArticles(activeSiteId)
         }
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json().catch(() => ({ error: "Failed to validate URL" }))
+        console.error("Validation error response:", errorData)
         setValidationError(errorData.error || "Failed to validate URL")
       }
     } catch (error) {
