@@ -1,7 +1,5 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,9 +29,9 @@ type Article = {
   category_id: number
   scheduled_publish_at: string | null
   status: string
+  response: string
+  prompt_instruction: string
   created_at: string
-  prompt_instruction?: string
-  response?: string
 }
 
 type EditArticleDialogProps = {
@@ -45,7 +43,9 @@ type EditArticleDialogProps = {
 
 export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArticleDialogProps) {
   const [formData, setFormData] = useState({
+    id: 0,
     title: "",
+    teaser: "",
     url: "",
     content: "",
     img: "",
@@ -53,12 +53,13 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     scheduled_publish_at: "",
     category_id: 1,
     user_id: 1,
+    site_id: 1,
+    status: "",
+    response: "success",
   })
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   // Load article data when dialog opens
   useEffect(() => {
@@ -81,24 +82,28 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
 
       if (response.ok) {
         const articleData = await response.json()
+        console.log("Article data:", articleData)
+
         if (Array.isArray(articleData) && articleData.length > 0) {
           // Map article data from array format
-          const data = articleData[0] // Assuming single article returned as array
+          // Based on the table structure:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, created_at, updated_at
+          const data = articleData
           setFormData({
-            title: data[1] || "",
-            url: data[5] || "",
-            content: data[3] || "",
-            img: data[4] || "",
-            prompt_instruction: data[12] || "", // Assuming prompt_instruction is at index 12
-            scheduled_publish_at: data[9] ? new Date(data[9]).toISOString().slice(0, 16) : "",
-            category_id: data[8] || 1,
-            user_id: data[7] || 1,
+            id: data[0] || 0,
+            title: data[2] || "",
+            teaser: data[3] || "",
+            content: data[4] || "",
+            img: data[5] || "",
+            url: data[10] || "",
+            site_id: data[1] || 1,
+            user_id: data[12] || 1,
+            category_id: data[11] || 1,
+            status: data[6] || "",
+            response: data[7] || "success",
+            prompt_instruction: data[13] || "",
+            scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "",
           })
-
-          // Set image preview if image exists
-          if (data[4]) {
-            setImagePreview(data[4])
-          }
         }
       } else {
         setError("Failed to load article details")
@@ -115,58 +120,25 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
-      setImageFile(file)
-
-      // Create preview
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => {
-        if (typeof reader.result === "string") {
-          const base64 = reader.result.split(",")[1]
-          resolve(base64)
-        } else {
-          reject(new Error("Failed to convert file to base64"))
-        }
-      }
-      reader.onerror = (error) => reject(error)
-    })
-  }
-
   const handleSave = async () => {
     setIsSaving(true)
     setError("")
 
     try {
-      let imageData = formData.img
-
-      // If new image file is selected, convert to base64
-      if (imageFile) {
-        imageData = await fileToBase64(imageFile)
-      }
-
       const updateData = {
         id: article?.id,
         title: formData.title,
+        teaser: formData.teaser,
         url: formData.url,
         content: formData.content,
-        img: imageData,
+        img: formData.img,
         prompt_instruction: formData.prompt_instruction,
         scheduled_publish_at: formData.scheduled_publish_at || null,
         category_id: formData.category_id,
         user_id: formData.user_id,
+        site_id: formData.site_id,
+        status: formData.status,
+        response: formData.response,
       }
 
       const response = await fetch(`${API_HOST}/articles/update_article`, {
@@ -194,7 +166,9 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
 
   const handleClose = () => {
     setFormData({
+      id: 0,
       title: "",
+      teaser: "",
       url: "",
       content: "",
       img: "",
@@ -202,9 +176,10 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       scheduled_publish_at: "",
       category_id: 1,
       user_id: 1,
+      site_id: 1,
+      status: "",
+      response: "success",
     })
-    setImageFile(null)
-    setImagePreview(null)
     setError("")
     onClose()
   }
@@ -233,6 +208,16 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 <Label htmlFor="url">URL (ikke redigerbar)</Label>
                 <Input id="url" value={formData.url} disabled className="bg-muted" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="teaser">Teaser</Label>
+              <Textarea
+                id="teaser"
+                value={formData.teaser}
+                onChange={(e) => handleInputChange("teaser", e.target.value)}
+                rows={2}
+              />
             </div>
 
             <div className="space-y-2">
@@ -286,19 +271,27 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="image">Billede</Label>
-              <div className="space-y-2">
-                <Input id="image" type="file" accept="image/*" onChange={handleImageChange} />
-                {imagePreview && (
-                  <div className="mt-2">
-                    <img
-                      src={imagePreview.startsWith("data:") ? imagePreview : `data:image/jpeg;base64,${imagePreview}`}
-                      alt="Preview"
-                      className="max-w-xs max-h-32 object-cover rounded border"
-                    />
-                  </div>
-                )}
-              </div>
+              <Label htmlFor="image">Billede URL</Label>
+              <Input
+                id="image"
+                type="text"
+                placeholder="Indtast billede URL"
+                value={formData.img}
+                onChange={(e) => handleInputChange("img", e.target.value)}
+              />
+              {formData.img && (
+                <div className="mt-2">
+                  <img
+                    src={formData.img || "/placeholder.svg"}
+                    alt="Preview"
+                    className="max-w-xs max-h-32 object-cover rounded border"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg?height=100&width=200"
+                      e.currentTarget.alt = "Billede ikke tilgængeligt"
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {error && (

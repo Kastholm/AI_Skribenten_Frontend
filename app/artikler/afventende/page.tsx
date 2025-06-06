@@ -19,7 +19,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Clock, Loader2, CheckCircle, ExternalLink, Edit, Trash2, AlertTriangle } from "lucide-react"
+import {
+  AlertCircle,
+  Clock,
+  Loader2,
+  CheckCircle,
+  ExternalLink,
+  Edit,
+  Trash2,
+  AlertTriangle,
+  Calendar,
+} from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -37,17 +47,21 @@ import {
 
 type Article = {
   id: number
+  site_id: number
   title: string
   teaser: string
   content: string
   img: string
-  url: string
-  site_id: number
-  user_id: number
-  category_id: number
-  scheduled_publish_at: string | null
   status: string
+  response: string
+  scheduled_publish_at: string | null
+  published_at: string | null
+  url: string
+  category_id: number
+  user_id: number
+  prompt_instruction: string
   created_at: string
+  updated_at: string
 }
 
 export default function AfventendeArtiklerPage() {
@@ -121,19 +135,25 @@ export default function AfventendeArtiklerPage() {
         const data = await response.json()
         if (Array.isArray(data)) {
           // Map articles data from array format to object format
+          // Based on the table structure:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, created_at, updated_at
           const formattedArticles: Article[] = data.map((articleArray: any[]) => ({
             id: articleArray[0],
-            title: articleArray[1],
-            teaser: articleArray[2],
-            content: articleArray[3],
-            img: articleArray[4],
-            url: articleArray[5],
-            site_id: articleArray[6],
-            user_id: articleArray[7],
-            category_id: articleArray[8],
-            scheduled_publish_at: articleArray[9],
-            status: articleArray[10] || "unvalidated",
-            created_at: articleArray[11],
+            site_id: articleArray[1],
+            title: articleArray[2],
+            teaser: articleArray[3],
+            content: articleArray[4],
+            img: articleArray[5],
+            status: articleArray[6],
+            response: articleArray[7],
+            scheduled_publish_at: articleArray[8],
+            published_at: articleArray[9],
+            url: articleArray[10],
+            category_id: articleArray[11],
+            user_id: articleArray[12],
+            prompt_instruction: articleArray[13],
+            created_at: articleArray[14],
+            updated_at: articleArray[15],
           }))
           setUnvalidatedArticles(formattedArticles)
         }
@@ -178,14 +198,29 @@ export default function AfventendeArtiklerPage() {
     fetchUserSites()
   }, [user?.id])
 
+  // Format date string
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Ikke planlagt"
+    const date = new Date(dateString)
+    return date.toLocaleDateString("da-DK", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
   // Get status icon and color
   const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
+    switch (status?.toLowerCase()) {
       case "validating":
         return <AlertCircle className="h-4 w-4 text-red-500" />
       case "queued":
         return <Clock className="h-4 w-4 text-orange-500" />
       case "scheduled":
+        return <Calendar className="h-4 w-4 text-blue-500" />
+      case "published":
         return <CheckCircle className="h-4 w-4 text-green-500" />
       default:
         return <AlertTriangle className="h-4 w-4 text-gray-500" />
@@ -242,7 +277,9 @@ export default function AfventendeArtiklerPage() {
 
   // Open URL in new window
   const openUrl = (url: string) => {
-    window.open(url, "_blank", "noopener,noreferrer")
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer")
+    }
   }
 
   return (
@@ -381,7 +418,9 @@ export default function AfventendeArtiklerPage() {
                             </TableCell>
                             <TableCell>
                               <div className="text-sm text-muted-foreground">
-                                {article.scheduled_publish_at ? "Planlagt" : "Ikke planlagt"}
+                                {article.scheduled_publish_at
+                                  ? formatDate(article.scheduled_publish_at)
+                                  : "Ikke planlagt"}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -391,6 +430,7 @@ export default function AfventendeArtiklerPage() {
                                   size="sm"
                                   onClick={() => handleDeleteArticle(article)}
                                   className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Slet artikel"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -399,6 +439,7 @@ export default function AfventendeArtiklerPage() {
                                   size="sm"
                                   onClick={() => handleEditArticle(article)}
                                   className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Rediger artikel"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
@@ -408,6 +449,7 @@ export default function AfventendeArtiklerPage() {
                                     size="sm"
                                     onClick={() => openUrl(article.url)}
                                     className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                    title="Åbn artikel URL"
                                   >
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
