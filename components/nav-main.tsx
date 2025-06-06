@@ -1,6 +1,16 @@
 "use client"
 
-import { ChevronRight, UserPlus, Globe, Link, MessageSquare, FileText, type LucideIcon } from "lucide-react"
+import {
+  ChevronRight,
+  UserPlus,
+  Globe,
+  Link,
+  MessageSquare,
+  FileText,
+  Calendar,
+  Clock,
+  type LucideIcon,
+} from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
 import NextLink from "next/link"
 
@@ -83,15 +93,38 @@ export function NavMain({
           </Collapsible>
         ))}
 
-        {/* Artikler link - visible for all users */}
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild tooltip="Artikler">
-            <NextLink href="/artikler">
-              <FileText className="h-4 w-4" />
-              <span>Artikler</span>
-            </NextLink>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
+        {/* Artikler dropdown - always open */}
+        <Collapsible asChild defaultOpen={true} className="group/collapsible">
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Artikler">
+                <FileText className="h-4 w-4" />
+                <span>Artikler</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild>
+                    <NextLink href="/artikler/planlagte">
+                      <Calendar className="h-4 w-4" />
+                      <span>Planlagte Artikler</span>
+                    </NextLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild>
+                    <NextLink href="/artikler/afventende">
+                      <Clock className="h-4 w-4" />
+                      <span>Afventende Artikler</span>
+                    </NextLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
 
         {/* Prompts link - visible for all users */}
         <SidebarMenuItem>
