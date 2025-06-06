@@ -128,17 +128,13 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       const updateData = {
         id: article?.id,
         title: formData.title,
-        teaser: formData.teaser,
         url: formData.url,
         content: formData.content,
         img: formData.img,
         prompt_instruction: formData.prompt_instruction,
-        scheduled_publish_at: formData.scheduled_publish_at || null,
+        scheduled_publish_at: formData.scheduled_publish_at || "", // Send empty string instead of null
         category_id: formData.category_id,
         user_id: formData.user_id,
-        site_id: formData.site_id,
-        status: formData.status,
-        response: formData.response,
       }
 
       const response = await fetch(`${API_HOST}/articles/update_article`, {
