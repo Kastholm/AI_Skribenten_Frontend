@@ -54,11 +54,19 @@ type Article = {
   scheduled_publish_at: string | null
   published_at: string | null
   url: string
-  category_id: number
-  user_id: number
   prompt_instruction: string
+  instructions: string
+  user_id: number
+  category_id: number
   created_at: string
   updated_at: string
+}
+
+type User = {
+  id: number
+  name: string
+  username: string
+  role: string
 }
 
 export default function PlanlagteArtiklerPage() {
@@ -71,6 +79,7 @@ export default function PlanlagteArtiklerPage() {
   const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [allUsers, setAllUsers] = useState<User[]>([])
 
   // Fetch scheduled articles for a specific site
   const fetchScheduledArticles = async (siteId: number) => {
@@ -88,8 +97,8 @@ export default function PlanlagteArtiklerPage() {
         const data = await response.json()
         if (Array.isArray(data)) {
           // Map articles data from array format to object format
-          // Based on the table structure:
-          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, created_at, updated_at
+          // Korrekt mapping baseret på tabel strukturen:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, prompt_instruction, instructions, user_id, category_id, created_at, updated_at
           const formattedArticles: Article[] = data.map((articleArray: any[]) => ({
             id: articleArray[0],
             site_id: articleArray[1],
@@ -102,11 +111,12 @@ export default function PlanlagteArtiklerPage() {
             scheduled_publish_at: articleArray[8],
             published_at: articleArray[9],
             url: articleArray[10],
-            category_id: articleArray[11],
-            user_id: articleArray[12],
-            prompt_instruction: articleArray[13],
-            created_at: articleArray[14],
-            updated_at: articleArray[15],
+            prompt_instruction: articleArray[11],
+            instructions: articleArray[12],
+            user_id: articleArray[13],
+            category_id: articleArray[14],
+            created_at: articleArray[15],
+            updated_at: articleArray[16],
           }))
           setScheduledArticles(formattedArticles)
         }
@@ -115,6 +125,35 @@ export default function PlanlagteArtiklerPage() {
       console.error("Error fetching scheduled articles:", error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  // Fetch all users
+  const fetchAllUsers = async () => {
+    try {
+      const response = await fetch(`${API_HOST}/users/info`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const usersData = await response.json()
+        if (usersData.users && Array.isArray(usersData.users)) {
+          // Map users data from array format
+          // [id, name, username, password, role]
+          const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
+            id: userArray[0],
+            name: userArray[1],
+            username: userArray[2],
+            role: userArray[4],
+          }))
+          setAllUsers(formattedUsers)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
     }
   }
 
@@ -138,6 +177,7 @@ export default function PlanlagteArtiklerPage() {
             const firstSiteId = data.sites[0][0] // First site's ID
             setActiveSiteId(firstSiteId)
             fetchScheduledArticles(firstSiteId)
+            fetchAllUsers()
           } else {
             setIsLoading(false)
           }
@@ -154,7 +194,13 @@ export default function PlanlagteArtiklerPage() {
   // Format date string
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Ikke planlagt"
+
+    // Check for valid date
     const date = new Date(dateString)
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+      return "Ugyldig dato"
+    }
+
     return date.toLocaleDateString("da-DK", {
       year: "numeric",
       month: "short",
@@ -178,6 +224,12 @@ export default function PlanlagteArtiklerPage() {
       default:
         return <AlertTriangle className="h-4 w-4 text-gray-500" />
     }
+  }
+
+  // Get user name by ID
+  const getUserName = (userId: number) => {
+    const foundUser = allUsers.find((u) => u.id === userId)
+    return foundUser ? foundUser.name : `Bruger ${userId}`
   }
 
   // Handle edit article
@@ -312,12 +364,10 @@ export default function PlanlagteArtiklerPage() {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="text-sm">Bruger {article.user_id}</div>
+                              <div className="text-sm">{getUserName(article.user_id)}</div>
                             </TableCell>
                             <TableCell>
-                              <div className="text-sm text-muted-foreground">
-                                {new Date(article.created_at).toLocaleDateString("da-DK")}
-                              </div>
+                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">{formatDate(article.scheduled_publish_at)}</div>
