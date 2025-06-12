@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Loader2, Copy, Info } from 'lucide-react'
+import { AlertCircle, Loader2, Copy, Info } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { API_HOST } from "@/app/env"
 import { useAuth } from "@/app/context/auth-context"
@@ -146,25 +146,27 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
         console.log("Article data:", articleData)
 
         if (Array.isArray(articleData) && articleData.length > 0) {
-          // Map article data from array format
-          // Based on the updated table structure:
-          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, instructions, created_at, updated_at
+          // Korrekt mapping baseret på den opdaterede tabel struktur:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, prompt_instruction, instructions, user_id, category_id, created_at, updated_at
           const data = articleData
           setFormData({
-            id: data[0] || 0,
-            title: data[2] || "",
-            teaser: data[3] || "",
-            content: data[4] || "",
-            img: data[5] || "",
-            url: data[10] || "",
-            site_id: data[1] || 1,
-            user_id: data[12] || 1,
-            category_id: data[11] || 1,
-            status: data[6] || "",
-            response: data[7] || "success",
-            prompt_instruction: data[13] || "",
-            instructions: data[14] || "",
-            scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "",
+            id: data[0] || 0, // id
+            site_id: data[1] || 1, // site_id
+            title: data[2] || "", // title
+            teaser: data[3] || "", // teaser
+            content: data[4] || "", // content
+            img: data[5] || "", // img
+            status: data[6] || "", // status
+            response: data[7] || "success", // response
+            scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "", // scheduled_publish_at
+            // data[9] er published_at - springer over
+            url: data[10] || "", // url
+            prompt_instruction: data[11] || "", // prompt_instruction
+            instructions: data[12] || "", // instructions
+            user_id: data[13] || 1, // user_id
+            category_id: data[14] || 1, // category_id
+            // data[15] er created_at
+            // data[16] er updated_at
           })
         }
       } else {
@@ -203,20 +205,15 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
             page_url: siteData[3],
           }
           setSiteInfo(site)
-          
-          // Opdater instructions med site beskrivelsen
-          setFormData(prev => ({
+
+          // Opdater instructions med site beskrivelsen hvis den er tom
+          setFormData((prev) => ({
             ...prev,
-            instructions: site.description || prev.instructions
+            instructions: prev.instructions || site.description || "",
           }))
         }
       } else {
         console.error("Failed to fetch site info, status:", response.status)
-        // Fallback til at bruge eksisterende instructions
-        setFormData(prev => ({
-          ...prev,
-          instructions: prev.instructions || "Site instruktioner ikke tilgængelige"
-        }))
       }
     } catch (error) {
       console.error("Error fetching site info:", error)
@@ -405,7 +402,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
   }
 
   // Find den aktuelle kategori
-  const currentCategory = categories.find(cat => cat.id === formData.category_id)
+  const currentCategory = categories.find((cat) => cat.id === formData.category_id)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -522,7 +519,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                   onChange={(e) => handleInputChange("scheduled_publish_at", e.target.value)}
                 />
               </div>
-              
+
               {/* Kategori dropdown i stedet for ID input */}
               <div className="space-y-2">
                 <Label htmlFor="category">Kategori</Label>
@@ -532,10 +529,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                     <span className="text-muted-foreground">Indlæser kategorier...</span>
                   </div>
                 ) : categories.length > 0 ? (
-                  <Select 
-                    value={formData.category_id.toString()} 
-                    onValueChange={handleCategorySelect}
-                  >
+                  <Select value={formData.category_id.toString()} onValueChange={handleCategorySelect}>
                     <SelectTrigger>
                       <SelectValue placeholder="Vælg kategori" />
                     </SelectTrigger>
@@ -560,7 +554,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                   </p>
                 )}
               </div>
-              
+
               {/* Bruger visning (read-only) */}
               <div className="space-y-2">
                 <Label htmlFor="user">Tildelt Bruger</Label>
