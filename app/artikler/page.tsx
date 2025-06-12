@@ -57,17 +57,26 @@ export default function ArtiklerPage() {
     setValidationError("")
     setValidationSuccess("")
 
+    if (!activeSiteId || !user?.id) {
+      setValidationError("Mangler site eller bruger information")
+      return
+    }
+
     setIsValidating(true)
 
     try {
-      console.log("Sending URL:", url)
+      console.log("Sending URL validation with:", { url, site_id: activeSiteId, user_id: user.id })
 
       const response = await fetch(`${API_HOST}/articles/validate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ url: url }),
+        body: JSON.stringify({
+          url: url,
+          site_id: activeSiteId,
+          user_id: user.id,
+        }),
       })
 
       if (response.ok) {
@@ -264,7 +273,7 @@ export default function ArtiklerPage() {
                       }}
                     />
                   </div>
-                  <Button onClick={handleValidateUrl} disabled={isValidating}>
+                  <Button onClick={handleValidateUrl} disabled={isValidating || !activeSiteId || !user?.id}>
                     {isValidating ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />

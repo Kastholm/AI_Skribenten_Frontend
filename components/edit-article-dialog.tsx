@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Loader2, Copy, Info } from "lucide-react"
+import { AlertCircle, Loader2, Copy, Info } from 'lucide-react'
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { API_HOST } from "@/app/env"
 import { useAuth } from "@/app/context/auth-context"
@@ -59,6 +59,13 @@ type User = {
   role: string
 }
 
+type Category = {
+  id: number
+  name: string
+  site_id: number
+  description?: string
+}
+
 type EditArticleDialogProps = {
   article: Article | null
   isOpen: boolean
@@ -89,10 +96,12 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
   const [siteInfo, setSiteInfo] = useState<Site | null>(null)
   const [userInfo, setUserInfo] = useState<User | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false)
   const [isLoadingSiteInfo, setIsLoadingSiteInfo] = useState(false)
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const [error, setError] = useState("")
 
   // Load article data and related info when dialog opens
@@ -104,10 +113,11 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }, [article, isOpen, user?.id])
 
-  // Fetch site info when site_id changes
+  // Fetch site info and categories when site_id changes
   useEffect(() => {
     if (formData.site_id && formData.site_id > 0) {
       fetchSiteInfo(formData.site_id)
+      fetchCategories(formData.site_id)
     }
   }, [formData.site_id])
 
@@ -168,29 +178,83 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
-  // Ændre fetchSiteInfo funktionen til at bruge en anden endpoint eller håndtere fejlen bedre
   const fetchSiteInfo = async (siteId: number) => {
     setIsLoadingSiteInfo(true)
 
     try {
-      // Prøv at hente site beskrivelsen direkte fra artiklen i stedet
-      // da backend endpointet har et problem
-      setFormData((prev) => ({
-        ...prev,
-        instructions: prev.instructions || "Site instruktioner ikke tilgængelige",
-      }))
-
-      // Sæt en placeholder site info
-      setSiteInfo({
-        id: siteId,
-        name: "Site " + siteId,
-        description: formData.instructions || "Site beskrivelse ikke tilgængelig",
-        page_url: "",
+      // Direkte fetch af site data
+      const response = await fetch(`${API_HOST}/sites/get_site_by_id/${siteId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
       })
+
+      if (response.ok) {
+        const siteData = await response.json()
+        console.log("Site data:", siteData)
+
+        if (Array.isArray(siteData) && siteData.length >= 3) {
+          // Antager at siteData er [id, name, description, page_url]
+          const site: Site = {
+            id: siteData[0],
+            name: siteData[1],
+            description: siteData[2],
+            page_url: siteData[3],
+          }
+          setSiteInfo(site)
+          
+          // Opdater instructions med site beskrivelsen
+          setFormData(prev => ({
+            ...prev,
+            instructions: site.description || prev.instructions
+          }))
+        }
+      } else {
+        console.error("Failed to fetch site info, status:", response.status)
+        // Fallback til at bruge eksisterende instructions
+        setFormData(prev => ({
+          ...prev,
+          instructions: prev.instructions || "Site instruktioner ikke tilgængelige"
+        }))
+      }
     } catch (error) {
-      console.error("Error handling site info:", error)
+      console.error("Error fetching site info:", error)
     } finally {
       setIsLoadingSiteInfo(false)
+    }
+  }
+
+  const fetchCategories = async (siteId: number) => {
+    setIsLoadingCategories(true)
+
+    try {
+      const response = await fetch(`${API_HOST}/categories/get_categories/${siteId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const categoriesData = await response.json()
+        console.log("Categories data:", categoriesData)
+
+        if (Array.isArray(categoriesData)) {
+          // Antager at hver kategori er [id, name, site_id, description]
+          const formattedCategories: Category[] = categoriesData.map((catArray: any[]) => ({
+            id: catArray[0],
+            name: catArray[1],
+            site_id: catArray[2],
+            description: catArray[3],
+          }))
+          setCategories(formattedCategories)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error)
+    } finally {
+      setIsLoadingCategories(false)
     }
   }
 
@@ -267,11 +331,9 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
-  // Fjern handleUserSelect funktionen da vi ikke længere bruger dropdown
-  // Fjern denne funktion:
-  // const handleUserSelect = (userId: string) => {
-  //   setFormData((prev) => ({ ...prev, user_id: Number.parseInt(userId) }))
-  // }
+  const handleCategorySelect = (categoryId: string) => {
+    setFormData((prev) => ({ ...prev, category_id: Number.parseInt(categoryId) }))
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -337,9 +399,13 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     setSiteInfo(null)
     setUserInfo(null)
     setAllUsers([])
+    setCategories([])
     setError("")
     onClose()
   }
+
+  // Find den aktuelle kategori
+  const currentCategory = categories.find(cat => cat.id === formData.category_id)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -401,7 +467,11 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 rows={3}
                 placeholder="Site instruktioner"
               />
-              <p className="text-xs text-blue-600">Disse instruktioner bruges automatisk i AI prompts.</p>
+              {siteInfo && (
+                <p className="text-xs text-blue-600">
+                  Site: {siteInfo.name} ({siteInfo.page_url}) - Disse instruktioner bruges automatisk i AI prompts.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -452,17 +522,46 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                   onChange={(e) => handleInputChange("scheduled_publish_at", e.target.value)}
                 />
               </div>
+              
+              {/* Kategori dropdown i stedet for ID input */}
               <div className="space-y-2">
-                <Label htmlFor="category">Kategori ID</Label>
-                <Input
-                  id="category"
-                  type="number"
-                  value={formData.category_id}
-                  onChange={(e) => handleInputChange("category_id", Number.parseInt(e.target.value) || 1)}
-                />
+                <Label htmlFor="category">Kategori</Label>
+                {isLoadingCategories ? (
+                  <div className="flex items-center gap-2 p-2 border rounded-md">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-muted-foreground">Indlæser kategorier...</span>
+                  </div>
+                ) : categories.length > 0 ? (
+                  <Select 
+                    value={formData.category_id.toString()} 
+                    onValueChange={handleCategorySelect}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vælg kategori" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <div className="flex items-center gap-2 p-2 border rounded-md">
+                    <span className="text-muted-foreground">
+                      {currentCategory ? currentCategory.name : `Kategori ID: ${formData.category_id}`}
+                    </span>
+                  </div>
+                )}
+                {currentCategory && (
+                  <p className="text-xs text-muted-foreground">
+                    {currentCategory.description || `Kategori: ${currentCategory.name}`}
+                  </p>
+                )}
               </div>
-              {/* Ændre bruger-sektionen til at være read-only i stedet for en dropdown
-              Erstat bruger dropdown sektionen med denne kode: */}
+              
+              {/* Bruger visning (read-only) */}
               <div className="space-y-2">
                 <Label htmlFor="user">Tildelt Bruger</Label>
                 <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
