@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Loader2, Copy } from "lucide-react"
+import { AlertCircle, Loader2, Copy, Info } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { API_HOST } from "@/app/env"
 import { useAuth } from "@/app/context/auth-context"
@@ -33,6 +33,7 @@ type Article = {
   status: string
   response: string
   prompt_instruction: string
+  instructions: string
   created_at: string
 }
 
@@ -61,6 +62,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     content: "",
     img: "",
     prompt_instruction: "",
+    instructions: "",
     scheduled_publish_at: "",
     category_id: 1,
     user_id: 1,
@@ -101,8 +103,8 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
 
         if (Array.isArray(articleData) && articleData.length > 0) {
           // Map article data from array format
-          // Based on the table structure:
-          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, created_at, updated_at
+          // Based on the updated table structure:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, category_id, user_id, prompt_instruction, instructions, created_at, updated_at
           const data = articleData
           setFormData({
             id: data[0] || 0,
@@ -117,6 +119,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
             status: data[6] || "",
             response: data[7] || "success",
             prompt_instruction: data[13] || "",
+            instructions: data[14] || "",
             scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "",
           })
         }
@@ -184,10 +187,12 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       const updateData = {
         id: article?.id,
         title: formData.title,
+        teaser: formData.teaser,
         url: formData.url,
         content: formData.content,
         img: formData.img,
         prompt_instruction: formData.prompt_instruction,
+        instructions: formData.instructions,
         scheduled_publish_at: formData.scheduled_publish_at || "", // Send empty string instead of null
         category_id: formData.category_id,
         user_id: formData.user_id,
@@ -225,6 +230,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       content: "",
       img: "",
       prompt_instruction: "",
+      instructions: "",
       scheduled_publish_at: "",
       category_id: 1,
       user_id: 1,
@@ -240,7 +246,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Rediger Artikel</DialogTitle>
           <DialogDescription>Rediger artikel information og gem ændringerne.</DialogDescription>
@@ -282,6 +288,25 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 onChange={(e) => handleInputChange("content", e.target.value)}
                 rows={6}
               />
+            </div>
+
+            {/* Site Instructions - Read Only */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="instructions">Site Instruktioner</Label>
+                <Info className="h-4 w-4 text-blue-500" />
+              </div>
+              <Textarea
+                id="instructions"
+                value={formData.instructions}
+                disabled
+                className="bg-blue-50 border-blue-200"
+                rows={3}
+                placeholder="Site instruktioner indlæses automatisk fra site beskrivelsen"
+              />
+              <p className="text-xs text-blue-600">
+                Disse instruktioner kommer fra sitets beskrivelse og bruges automatisk i AI prompts.
+              </p>
             </div>
 
             <div className="space-y-2">
