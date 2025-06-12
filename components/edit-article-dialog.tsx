@@ -168,34 +168,27 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
+  // Ændre fetchSiteInfo funktionen til at bruge en anden endpoint eller håndtere fejlen bedre
   const fetchSiteInfo = async (siteId: number) => {
     setIsLoadingSiteInfo(true)
 
     try {
-      const response = await fetch(`${API_HOST}/sites/get_site_by_id/${siteId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      // Prøv at hente site beskrivelsen direkte fra artiklen i stedet
+      // da backend endpointet har et problem
+      setFormData((prev) => ({
+        ...prev,
+        instructions: prev.instructions || "Site instruktioner ikke tilgængelige",
+      }))
+
+      // Sæt en placeholder site info
+      setSiteInfo({
+        id: siteId,
+        name: "Site " + siteId,
+        description: formData.instructions || "Site beskrivelse ikke tilgængelig",
+        page_url: "",
       })
-
-      if (response.ok) {
-        const siteData = await response.json()
-        console.log("Site data:", siteData)
-
-        if (Array.isArray(siteData) && siteData.length > 0) {
-          // Map site data from array format
-          // Assuming: [id, name, logo, description, page_url]
-          setSiteInfo({
-            id: siteData[0],
-            name: siteData[1],
-            description: siteData[3],
-            page_url: siteData[4],
-          })
-        }
-      }
     } catch (error) {
-      console.error("Error fetching site info:", error)
+      console.error("Error handling site info:", error)
     } finally {
       setIsLoadingSiteInfo(false)
     }
@@ -274,9 +267,11 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
-  const handleUserSelect = (userId: string) => {
-    setFormData((prev) => ({ ...prev, user_id: Number.parseInt(userId) }))
-  }
+  // Fjern handleUserSelect funktionen da vi ikke længere bruger dropdown
+  // Fjern denne funktion:
+  // const handleUserSelect = (userId: string) => {
+  //   setFormData((prev) => ({ ...prev, user_id: Number.parseInt(userId) }))
+  // }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -392,7 +387,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
               />
             </div>
 
-            {/* Site Instructions - Read Only */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="instructions">Site Instruktioner</Label>
@@ -401,17 +395,13 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
               </div>
               <Textarea
                 id="instructions"
-                value={siteInfo ? siteInfo.description : formData.instructions}
-                disabled
+                value={formData.instructions || "Ingen instruktioner tilgængelige"}
+                onChange={(e) => handleInputChange("instructions", e.target.value)}
                 className="bg-blue-50 border-blue-200"
                 rows={3}
-                placeholder="Site instruktioner indlæses automatisk fra site beskrivelsen"
+                placeholder="Site instruktioner"
               />
-              <p className="text-xs text-blue-600">
-                {siteInfo
-                  ? `Site: ${siteInfo.name} (${siteInfo.page_url}) - Disse instruktioner bruges automatisk i AI prompts.`
-                  : "Site instruktioner indlæses..."}
-              </p>
+              <p className="text-xs text-blue-600">Disse instruktioner bruges automatisk i AI prompts.</p>
             </div>
 
             <div className="space-y-2">
@@ -471,30 +461,25 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                   onChange={(e) => handleInputChange("category_id", Number.parseInt(e.target.value) || 1)}
                 />
               </div>
+              {/* Ændre bruger-sektionen til at være read-only i stedet for en dropdown
+              Erstat bruger dropdown sektionen med denne kode: */}
               <div className="space-y-2">
                 <Label htmlFor="user">Tildelt Bruger</Label>
-                <Select value={formData.user_id.toString()} onValueChange={handleUserSelect}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Vælg bruger" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{user.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            @{user.username} ({user.role})
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {userInfo && (
-                  <p className="text-xs text-muted-foreground">
-                    Valgt: {userInfo.name} (@{userInfo.username})
-                  </p>
-                )}
+                <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
+                  {userInfo ? (
+                    <div className="flex flex-col">
+                      <span className="font-medium">{userInfo.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        @{userInfo.username} ({userInfo.role})
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">Bruger {formData.user_id}</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Artiklen er tildelt til brugeren der startede valideringsprocessen
+                </p>
               </div>
             </div>
 
