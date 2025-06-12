@@ -45,6 +45,20 @@ type Prompt = {
   created_at: string
 }
 
+type Site = {
+  id: number
+  name: string
+  description: string
+  page_url: string
+}
+
+type User = {
+  id: number
+  name: string
+  username: string
+  role: string
+}
+
 type EditArticleDialogProps = {
   article: Article | null
   isOpen: boolean
@@ -72,18 +86,38 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
   })
   const [prompts, setPrompts] = useState<Prompt[]>([])
   const [selectedPromptId, setSelectedPromptId] = useState<string>("")
+  const [siteInfo, setSiteInfo] = useState<Site | null>(null)
+  const [userInfo, setUserInfo] = useState<User | null>(null)
+  const [allUsers, setAllUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false)
+  const [isLoadingSiteInfo, setIsLoadingSiteInfo] = useState(false)
   const [error, setError] = useState("")
 
-  // Load article data and prompts when dialog opens
+  // Load article data and related info when dialog opens
   useEffect(() => {
     if (article && isOpen && user?.id) {
       fetchArticleDetails(article.id)
       fetchUserPrompts(user.id)
+      fetchAllUsers()
     }
   }, [article, isOpen, user?.id])
+
+  // Fetch site info when site_id changes
+  useEffect(() => {
+    if (formData.site_id && formData.site_id > 0) {
+      fetchSiteInfo(formData.site_id)
+    }
+  }, [formData.site_id])
+
+  // Fetch user info when user_id changes
+  useEffect(() => {
+    if (formData.user_id && formData.user_id > 0 && allUsers.length > 0) {
+      const foundUser = allUsers.find((u) => u.id === formData.user_id)
+      setUserInfo(foundUser || null)
+    }
+  }, [formData.user_id, allUsers])
 
   const fetchArticleDetails = async (articleId: number) => {
     setIsLoading(true)
@@ -134,6 +168,67 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
+  const fetchSiteInfo = async (siteId: number) => {
+    setIsLoadingSiteInfo(true)
+
+    try {
+      const response = await fetch(`${API_HOST}/sites/get_site_by_id/${siteId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const siteData = await response.json()
+        console.log("Site data:", siteData)
+
+        if (Array.isArray(siteData) && siteData.length > 0) {
+          // Map site data from array format
+          // Assuming: [id, name, logo, description, page_url]
+          setSiteInfo({
+            id: siteData[0],
+            name: siteData[1],
+            description: siteData[3],
+            page_url: siteData[4],
+          })
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching site info:", error)
+    } finally {
+      setIsLoadingSiteInfo(false)
+    }
+  }
+
+  const fetchAllUsers = async () => {
+    try {
+      const response = await fetch(`${API_HOST}/users/info`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const usersData = await response.json()
+        if (usersData.users && Array.isArray(usersData.users)) {
+          // Map users data from array format
+          // [id, name, username, password, role]
+          const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
+            id: userArray[0],
+            name: userArray[1],
+            username: userArray[2],
+            role: userArray[4],
+          }))
+          setAllUsers(formattedUsers)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+    }
+  }
+
   const fetchUserPrompts = async (userId: number) => {
     setIsLoadingPrompts(true)
 
@@ -177,6 +272,10 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     if (selectedPrompt) {
       setFormData((prev) => ({ ...prev, prompt_instruction: selectedPrompt.description }))
     }
+  }
+
+  const handleUserSelect = (userId: string) => {
+    setFormData((prev) => ({ ...prev, user_id: Number.parseInt(userId) }))
   }
 
   const handleSave = async () => {
@@ -240,6 +339,9 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     })
     setPrompts([])
     setSelectedPromptId("")
+    setSiteInfo(null)
+    setUserInfo(null)
+    setAllUsers([])
     setError("")
     onClose()
   }
@@ -295,17 +397,20 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
               <div className="flex items-center gap-2">
                 <Label htmlFor="instructions">Site Instruktioner</Label>
                 <Info className="h-4 w-4 text-blue-500" />
+                {isLoadingSiteInfo && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
               </div>
               <Textarea
                 id="instructions"
-                value={formData.instructions}
+                value={siteInfo ? siteInfo.description : formData.instructions}
                 disabled
                 className="bg-blue-50 border-blue-200"
                 rows={3}
                 placeholder="Site instruktioner indlæses automatisk fra site beskrivelsen"
               />
               <p className="text-xs text-blue-600">
-                Disse instruktioner kommer fra sitets beskrivelse og bruges automatisk i AI prompts.
+                {siteInfo
+                  ? `Site: ${siteInfo.name} (${siteInfo.page_url}) - Disse instruktioner bruges automatisk i AI prompts.`
+                  : "Site instruktioner indlæses..."}
               </p>
             </div>
 
@@ -367,13 +472,29 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="user">Bruger ID</Label>
-                <Input
-                  id="user"
-                  type="number"
-                  value={formData.user_id}
-                  onChange={(e) => handleInputChange("user_id", Number.parseInt(e.target.value) || 1)}
-                />
+                <Label htmlFor="user">Tildelt Bruger</Label>
+                <Select value={formData.user_id.toString()} onValueChange={handleUserSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Vælg bruger" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allUsers.map((user) => (
+                      <SelectItem key={user.id} value={user.id.toString()}>
+                        <div className="flex flex-col">
+                          <span className="font-medium">{user.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            @{user.username} ({user.role})
+                          </span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {userInfo && (
+                  <p className="text-xs text-muted-foreground">
+                    Valgt: {userInfo.name} (@{userInfo.username})
+                  </p>
+                )}
               </div>
             </div>
 
