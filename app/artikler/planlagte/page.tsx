@@ -80,6 +80,8 @@ export default function PlanlagteArtiklerPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
+  // Tilføj en ny state variabel for at holde styr på om en artikel er ved at blive publiceret
+  const [isPublishing, setIsPublishing] = useState<number | null>(null)
 
   // Fetch scheduled articles for a specific site
   const fetchScheduledArticles = async (siteId: number) => {
@@ -287,6 +289,52 @@ export default function PlanlagteArtiklerPage() {
     }
   }
 
+  // Tilføj en ny funktion til at håndtere publicering af en artikel
+  const handlePublishArticle = async (article: Article) => {
+    setIsPublishing(article.id)
+
+    try {
+      // Forbered data til backend
+      const publishData = {
+        site_id: article.site_id,
+        title: article.title,
+        teaser: article.teaser,
+        content: article.content,
+        img: article.img,
+        prompt_instructions: article.prompt_instruction, // Bemærk: Backend forventer prompt_instructions med 's'
+        instructions: article.instructions,
+        user_id: article.user_id,
+        category_id: article.category_id,
+      }
+
+      console.log("Publishing article:", publishData)
+
+      const response = await fetch(`${API_HOST}/articles/write_article`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(publishData),
+      })
+
+      if (response.ok) {
+        // Vis en success besked eller opdater artiklen
+        console.log("Article published successfully")
+
+        // Opdater artikellisten
+        if (activeSiteId) {
+          fetchScheduledArticles(activeSiteId)
+        }
+      } else {
+        console.error("Failed to publish article:", await response.text())
+      }
+    } catch (error) {
+      console.error("Error publishing article:", error)
+    } finally {
+      setIsPublishing(null)
+    }
+  }
+
   return (
     <ProtectedRoute>
       <SidebarProvider>
@@ -403,6 +451,24 @@ export default function PlanlagteArtiklerPage() {
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
                                 )}
+                                {/* Tilføj Publish knap */}
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handlePublishArticle(article)}
+                                  disabled={isPublishing === article.id}
+                                  className="ml-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4"
+                                  title="Udgiv artikel"
+                                >
+                                  {isPublishing === article.id ? (
+                                    <>
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      Udgiver...
+                                    </>
+                                  ) : (
+                                    "Publish"
+                                  )}
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
