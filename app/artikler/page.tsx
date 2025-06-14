@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import ProtectedRoute from "../components/protected-route"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -19,7 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Calendar, Loader2, CheckCircle, ExternalLink, FileText } from "lucide-react"
+import { AlertCircle, Calendar, Loader2, CheckCircle, ExternalLink, FileText, Clock, ArrowRight } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -41,6 +42,7 @@ type Article = {
 
 export default function ArtiklerPage() {
   const { user } = useAuth()
+  const router = useRouter()
   const [url, setUrl] = useState("")
   const [isValidating, setIsValidating] = useState(false)
   const [validationError, setValidationError] = useState("")
@@ -51,6 +53,11 @@ export default function ArtiklerPage() {
   const [isLoadingUnvalidated, setIsLoadingUnvalidated] = useState(true)
   const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
   const [activeView, setActiveView] = useState<"scheduled" | "unvalidated">("scheduled")
+
+  // Redirect to planlagte artikler by default
+  useEffect(() => {
+    router.push("/artikler/planlagte")
+  }, [router])
 
   // Handle URL validation (no validation, just send to backend)
   const handleValidateUrl = async () => {
@@ -249,6 +256,78 @@ export default function ArtiklerPage() {
             </div>
           </header>
           <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Planlagte Artikler Card */}
+              <Card
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => router.push("/artikler/planlagte")}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5 text-blue-500" />
+                    Planlagte Artikler
+                  </CardTitle>
+                  <CardDescription>Se og administrer alle artikler der er planlagt til udgivelse</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">Artikler med fastsat udgivelsesdato og -tid</p>
+                    <Button variant="ghost" size="sm">
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Afventende Artikler Card */}
+              <Card
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => router.push("/artikler/afventende")}
+              >
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-orange-500" />
+                    Afventende Artikler
+                  </CardTitle>
+                  <CardDescription>
+                    Se og administrer artikler der afventer planlægning eller behandling
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Valider nye URLs og administrer ikke-planlagte artikler
+                    </p>
+                    <Button variant="ghost" size="sm">
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Hurtige Handlinger</CardTitle>
+                <CardDescription>Almindelige opgaver for artikel administration</CardDescription>
+              </CardHeader>
+              <CardContent className="flex gap-2">
+                <Button onClick={() => router.push("/artikler/afventende")} className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Valider Ny URL
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/artikler/planlagte")}
+                  className="flex items-center gap-2"
+                >
+                  <Calendar className="h-4 w-4" />
+                  Se Planlagte Artikler
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* URL Validation Section */}
             <Card>
               <CardHeader className="pb-3">
