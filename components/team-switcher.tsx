@@ -31,6 +31,18 @@ export function TeamSwitcher({
   const handleTeamChange = (team: (typeof teams)[0], index: number) => {
     setActiveTeam(team)
     onTeamChange?.(index)
+
+    // Store the active site in localStorage and dispatch custom event
+    const siteData = {
+      id: index + 1, // This should be the actual site ID
+      name: team.name,
+      page_url: team.plan,
+    }
+
+    localStorage.setItem("activeSite", JSON.stringify(siteData))
+
+    // Dispatch custom event for same-tab communication
+    window.dispatchEvent(new CustomEvent("activeSiteChanged"))
   }
 
   // Update active team when teams change

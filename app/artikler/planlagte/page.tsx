@@ -69,18 +69,26 @@ type User = {
   role: string
 }
 
+type Site = {
+  id: number
+  name: string
+  page_url: string
+  description: string
+}
+
 export default function PlanlagteArtiklerPage() {
   const { user } = useAuth()
   const [scheduledArticles, setScheduledArticles] = useState<Article[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
+  const [activeSite, setActiveSite] = useState<Site | null>(null)
+  const [userSites, setUserSites] = useState<Site[]>([])
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
-  // Tilføj en ny state variabel for at holde styr på om en artikel er ved at blive publiceret
   const [isPublishing, setIsPublishing] = useState<number | null>(null)
 
   // Fetch scheduled articles for a specific site
@@ -98,9 +106,6 @@ export default function PlanlagteArtiklerPage() {
       if (response.ok) {
         const data = await response.json()
         if (Array.isArray(data)) {
-          // Map articles data from array format to object format
-          // Korrekt mapping baseret på tabel strukturen:
-          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, prompt_instruction, instructions, user_id, category_id, created_at, updated_at
           const formattedArticles: Article[] = data.map((articleArray: any[]) => ({
             id: articleArray[0],
             site_id: articleArray[1],
@@ -143,8 +148,6 @@ export default function PlanlagteArtiklerPage() {
       if (response.ok) {
         const usersData = await response.json()
         if (usersData.users && Array.isArray(usersData.users)) {
-          // Map users data from array format
-          // [id, name, username, password, role]
           const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
             id: userArray[0],
             name: userArray[1],
@@ -159,45 +162,92 @@ export default function PlanlagteArtiklerPage() {
     }
   }
 
-  // Get active site ID from user's sites
-  useEffect(() => {
-    const fetchUserSites = async () => {
-      if (!user?.id) return
+  // Fetch user sites
+  const fetchUserSites = async () => {
+    if (!user?.id) return
 
-      try {
-        const response = await fetch(`${API_HOST}/users/sites/${user.id}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
+    try {
+      const response = await fetch(`${API_HOST}/users/sites/${user.id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-        if (response.ok) {
-          const data = await response.json()
-          if (data.sites && Array.isArray(data.sites) && data.sites.length > 0) {
-            // Use the first site for now
-            const firstSiteId = data.sites[0][0] // First site's ID
-            setActiveSiteId(firstSiteId)
-            fetchScheduledArticles(firstSiteId)
-            fetchAllUsers()
-          } else {
-            setIsLoading(false)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.sites && Array.isArray(data.sites) && data.sites.length > 0) {
+          const formattedSites: Site[] = data.sites.map((siteArray: any[]) => ({
+            id: siteArray[0],
+            name: siteArray[1],
+            description: siteArray[2],
+            page_url: siteArray[3],
+          }))
+
+          setUserSites(formattedSites)
+
+          // Set first site as active by default if no active site is set
+          if (!activeSiteId && formattedSites.length > 0) {
+            const firstSite = formattedSites[0]
+            setActiveSiteId(firstSite.id)
+            setActiveSite(firstSite)
+            fetchScheduledArticles(firstSite.id)
           }
+        } else {
+          setIsLoading(false)
         }
-      } catch (error) {
-        console.error("Error fetching user sites:", error)
-        setIsLoading(false)
+      }
+    } catch (error) {
+      console.error("Error fetching user sites:", error)
+      setIsLoading(false)
+    }
+  }
+
+  // Listen for site changes from localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const storedActiveSite = localStorage.getItem("activeSite")
+      if (storedActiveSite) {
+        try {
+          const siteData = JSON.parse(storedActiveSite)
+          if (siteData.id !== activeSiteId) {
+            setActiveSiteId(siteData.id)
+            setActiveSite(siteData)
+            fetchScheduledArticles(siteData.id)
+          }
+        } catch (error) {
+          console.error("Error parsing stored active site:", error)
+        }
       }
     }
 
-    fetchUserSites()
+    // Listen for storage changes
+    window.addEventListener("storage", handleStorageChange)
+
+    // Also listen for custom events (for same-tab changes)
+    window.addEventListener("activeSiteChanged", handleStorageChange)
+
+    // Check for stored active site on mount
+    handleStorageChange()
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("activeSiteChanged", handleStorageChange)
+    }
+  }, [activeSiteId])
+
+  // Initial data fetch
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserSites()
+      fetchAllUsers()
+    }
   }, [user?.id])
 
   // Format date string
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Ikke planlagt"
 
-    // Check for valid date
     const date = new Date(dateString)
     if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
       return "Ugyldig dato"
@@ -261,7 +311,6 @@ export default function PlanlagteArtiklerPage() {
       })
 
       if (response.ok) {
-        // Refresh articles list
         if (activeSiteId) {
           fetchScheduledArticles(activeSiteId)
         }
@@ -289,19 +338,18 @@ export default function PlanlagteArtiklerPage() {
     }
   }
 
-  // Tilføj en ny funktion til at håndtere publicering af en artikel
+  // Handle publish article
   const handlePublishArticle = async (article: Article) => {
     setIsPublishing(article.id)
 
     try {
-      // Forbered data til backend
       const publishData = {
         site_id: article.site_id,
         title: article.title,
         teaser: article.teaser,
         content: article.content,
         img: article.img,
-        prompt_instructions: article.prompt_instruction, // Bemærk: Backend forventer prompt_instructions med 's'
+        prompt_instructions: article.prompt_instruction,
         instructions: article.instructions,
         user_id: article.user_id,
         category_id: article.category_id,
@@ -318,10 +366,7 @@ export default function PlanlagteArtiklerPage() {
       })
 
       if (response.ok) {
-        // Vis en success besked eller opdater artiklen
         console.log("Article published successfully")
-
-        // Opdater artikellisten
         if (activeSiteId) {
           fetchScheduledArticles(activeSiteId)
         }
@@ -355,7 +400,7 @@ export default function PlanlagteArtiklerPage() {
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>Planlagte Artikler</BreadcrumbPage>
+                    <BreadcrumbPage>Planlagte Artikler {activeSite && `- ${activeSite.name}`}</BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
@@ -370,8 +415,13 @@ export default function PlanlagteArtiklerPage() {
                     <CardTitle className="flex items-center gap-2">
                       <Calendar className="h-5 w-5" />
                       Planlagte Artikler
+                      {activeSite && (
+                        <span className="text-sm font-normal text-muted-foreground">for {activeSite.name}</span>
+                      )}
                     </CardTitle>
-                    <CardDescription>Oversigt over alle planlagte artikler for dit site</CardDescription>
+                    <CardDescription>
+                      Oversigt over alle planlagte artikler for {activeSite?.name || "dit site"}
+                    </CardDescription>
                   </div>
                   <Badge variant="secondary" className="text-lg px-3 py-1">
                     {scheduledArticles.length} artikler
@@ -387,7 +437,9 @@ export default function PlanlagteArtiklerPage() {
                 ) : scheduledArticles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">Ingen planlagte artikler fundet</p>
+                    <p className="text-muted-foreground">
+                      Ingen planlagte artikler fundet for {activeSite?.name || "dette site"}
+                    </p>
                   </div>
                 ) : (
                   <div className="rounded-md border">
@@ -451,7 +503,6 @@ export default function PlanlagteArtiklerPage() {
                                     <ExternalLink className="h-4 w-4" />
                                   </Button>
                                 )}
-                                {/* Tilføj Publish knap */}
                                 <Button
                                   variant="default"
                                   size="sm"
