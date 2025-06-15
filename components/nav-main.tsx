@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronRight, UserPlus, Globe, Link, MessageSquare, FileText, Archive } from "lucide-react"
+import { ChevronRight, UserPlus, Globe, Link, MessageSquare, FileText, Archive, Settings } from "lucide-react"
 import { useAuth } from "@/app/context/auth-context"
 import NextLink from "next/link"
 
@@ -39,6 +39,15 @@ export function NavMain() {
     },
   ]
 
+  // Settings items
+  const settingsItems = [
+    {
+      title: "Page Settings",
+      url: "/settings/page",
+      icon: Globe,
+    },
+  ]
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
@@ -72,6 +81,33 @@ export function NavMain() {
             </NextLink>
           </SidebarMenuButton>
         </SidebarMenuItem>
+
+        {/* Settings dropdown */}
+        <Collapsible asChild className="group/collapsible">
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Settings">
+                <Settings />
+                <span>Settings</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {settingsItems.map((settingsItem) => (
+                  <SidebarMenuSubItem key={settingsItem.title}>
+                    <SidebarMenuSubButton asChild>
+                      <NextLink href={settingsItem.url}>
+                        {settingsItem.icon && <settingsItem.icon className="h-4 w-4" />}
+                        <span>{settingsItem.title}</span>
+                      </NextLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </SidebarMenuItem>
+        </Collapsible>
 
         {/* Admin dropdown - only visible for admin users */}
         {isAdmin && (
