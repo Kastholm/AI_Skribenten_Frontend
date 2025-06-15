@@ -437,6 +437,7 @@ export default function ArtiklerPage() {
 
     try {
       const publishData = {
+        id: article.id, // Tilføj artikel ID
         site_id: article.site_id,
         title: article.title,
         teaser: article.teaser,
