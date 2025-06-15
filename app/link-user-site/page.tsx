@@ -22,7 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useAuth } from "../providers/auth-provider"
+import { useAuth } from "../context/auth-context"
 
 type User = {
   id: number
