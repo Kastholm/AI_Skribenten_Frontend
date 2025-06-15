@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import ProtectedRoute from "../components/protected-route"
 import { AppSidebar } from "@/components/app-sidebar"
 import {
@@ -20,28 +19,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { AlertCircle, Calendar, Loader2, CheckCircle, ExternalLink, FileText, Clock, ArrowRight } from "lucide-react"
+import {
+  AlertCircle,
+  Calendar,
+  Loader2,
+  CheckCircle,
+  ExternalLink,
+  Edit,
+  Trash2,
+  Clock,
+  AlertTriangle,
+} from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { EditArticleDialog } from "@/components/edit-article-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type Article = {
   id: number
+  site_id: number
   title: string
   teaser: string
   content: string
   img: string
-  url: string
-  site_id: number
-  user_id: number
-  scheduled_publish_at: string | null
   status: string
+  response: string
+  scheduled_publish_at: string | null
+  published_at: string | null
+  url: string
+  prompt_instruction: string
+  instructions: string
+  user_id: number
   created_at: string
+  updated_at: string
+}
+
+type User = {
+  id: number
+  name: string
+  username: string
+  role: string
+}
+
+type Site = {
+  id: number
+  name: string
+  page_url: string
+  description: string
 }
 
 export default function ArtiklerPage() {
   const { user } = useAuth()
-  const router = useRouter()
   const [url, setUrl] = useState("")
   const [isValidating, setIsValidating] = useState(false)
   const [validationError, setValidationError] = useState("")
@@ -51,14 +89,16 @@ export default function ArtiklerPage() {
   const [isLoadingScheduled, setIsLoadingScheduled] = useState(true)
   const [isLoadingUnvalidated, setIsLoadingUnvalidated] = useState(true)
   const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
-  const [activeView, setActiveView] = useState<"scheduled" | "unvalidated">("scheduled")
+  const [activeSite, setActiveSite] = useState<Site | null>(null)
+  const [editingArticle, setEditingArticle] = useState<Article | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [isPublishing, setIsPublishing] = useState<number | null>(null)
 
-  // Redirect to planlagte artikler by default
-  useEffect(() => {
-    router.push("/artikler/planlagte")
-  }, [router])
-
-  // Handle URL validation (no validation, just send to backend)
+  // Handle URL validation
   const handleValidateUrl = async () => {
     setValidationError("")
     setValidationSuccess("")
@@ -124,19 +164,23 @@ export default function ArtiklerPage() {
       if (scheduledResponse.ok) {
         const scheduledData = await scheduledResponse.json()
         if (Array.isArray(scheduledData)) {
-          // Map articles data from array format to object format
           const formattedScheduledArticles: Article[] = scheduledData.map((articleArray: any[]) => ({
             id: articleArray[0],
-            title: articleArray[1],
-            teaser: articleArray[2],
-            content: articleArray[3],
-            img: articleArray[4],
-            url: articleArray[5],
-            site_id: articleArray[6],
-            user_id: articleArray[7],
+            site_id: articleArray[1],
+            title: articleArray[2],
+            teaser: articleArray[3],
+            content: articleArray[4],
+            img: articleArray[5],
+            status: articleArray[6],
+            response: articleArray[7],
             scheduled_publish_at: articleArray[8],
-            status: articleArray[9] || "unknown",
-            created_at: articleArray[10],
+            published_at: articleArray[9],
+            url: articleArray[10],
+            prompt_instruction: articleArray[11],
+            instructions: articleArray[12],
+            user_id: articleArray[13],
+            created_at: articleArray[14],
+            updated_at: articleArray[15],
           }))
           setScheduledArticles(formattedScheduledArticles)
         }
@@ -153,19 +197,23 @@ export default function ArtiklerPage() {
       if (unvalidatedResponse.ok) {
         const unvalidatedData = await unvalidatedResponse.json()
         if (Array.isArray(unvalidatedData)) {
-          // Map articles data from array format to object format
           const formattedUnvalidatedArticles: Article[] = unvalidatedData.map((articleArray: any[]) => ({
             id: articleArray[0],
-            title: articleArray[1],
-            teaser: articleArray[2],
-            content: articleArray[3],
-            img: articleArray[4],
-            url: articleArray[5],
-            site_id: articleArray[6],
-            user_id: articleArray[7],
+            site_id: articleArray[1],
+            title: articleArray[2],
+            teaser: articleArray[3],
+            content: articleArray[4],
+            img: articleArray[5],
+            status: articleArray[6],
+            response: articleArray[7],
             scheduled_publish_at: articleArray[8],
-            status: articleArray[9] || "unvalidated",
-            created_at: articleArray[10],
+            published_at: articleArray[9],
+            url: articleArray[10],
+            prompt_instruction: articleArray[11],
+            instructions: articleArray[12],
+            user_id: articleArray[13],
+            created_at: articleArray[14],
+            updated_at: articleArray[15],
           }))
           setUnvalidatedArticles(formattedUnvalidatedArticles)
         }
@@ -178,7 +226,41 @@ export default function ArtiklerPage() {
     }
   }
 
-  // Get active site ID from user's sites
+  // Fetch all users
+  const fetchAllUsers = async () => {
+    if (!user?.role) {
+      console.error("User role not available")
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const usersData = await response.json()
+        if (usersData.success === false) {
+          console.error("Not authorized to fetch users:", usersData.error)
+        } else if (usersData.users && Array.isArray(usersData.users)) {
+          const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
+            id: userArray[0],
+            name: userArray[1],
+            username: userArray[2],
+            role: userArray[4],
+          }))
+          setAllUsers(formattedUsers)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+    }
+  }
+
+  // Fetch user sites and listen for site changes
   useEffect(() => {
     const fetchUserSites = async () => {
       if (!user?.id) return
@@ -194,10 +276,20 @@ export default function ArtiklerPage() {
         if (response.ok) {
           const data = await response.json()
           if (data.sites && Array.isArray(data.sites) && data.sites.length > 0) {
-            // Use the first site for now
-            const firstSiteId = data.sites[0][0] // First site's ID
-            setActiveSiteId(firstSiteId)
-            fetchArticles(firstSiteId)
+            const formattedSites: Site[] = data.sites.map((siteArray: any[]) => ({
+              id: siteArray[0],
+              name: siteArray[1],
+              description: siteArray[2],
+              page_url: siteArray[3],
+            }))
+
+            // Set first site as active by default if no active site is set
+            if (!activeSiteId && formattedSites.length > 0) {
+              const firstSite = formattedSites[0]
+              setActiveSiteId(firstSite.id)
+              setActiveSite(firstSite)
+              fetchArticles(firstSite.id)
+            }
           } else {
             setIsLoadingScheduled(false)
             setIsLoadingUnvalidated(false)
@@ -211,12 +303,49 @@ export default function ArtiklerPage() {
     }
 
     fetchUserSites()
+    fetchAllUsers()
   }, [user?.id])
+
+  // Listen for site changes from localStorage
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const storedActiveSite = localStorage.getItem("activeSite")
+      if (storedActiveSite) {
+        try {
+          const siteData = JSON.parse(storedActiveSite)
+          if (siteData.id !== activeSiteId) {
+            setActiveSiteId(siteData.id)
+            setActiveSite(siteData)
+            fetchArticles(siteData.id)
+          }
+        } catch (error) {
+          console.error("Error parsing stored active site:", error)
+        }
+      }
+    }
+
+    // Listen for storage changes
+    window.addEventListener("storage", handleStorageChange)
+    // Also listen for custom events (for same-tab changes)
+    window.addEventListener("activeSiteChanged", handleStorageChange)
+    // Check for stored active site on mount
+    handleStorageChange()
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      window.removeEventListener("activeSiteChanged", handleStorageChange)
+    }
+  }, [activeSiteId])
 
   // Format date string
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "Ikke planlagt"
+
     const date = new Date(dateString)
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+      return "Ugyldig dato"
+    }
+
     return date.toLocaleDateString("da-DK", {
       year: "numeric",
       month: "short",
@@ -226,9 +355,122 @@ export default function ArtiklerPage() {
     })
   }
 
-  // Get current articles based on active view
-  const currentArticles = activeView === "scheduled" ? scheduledArticles : unvalidatedArticles
-  const isLoading = activeView === "scheduled" ? isLoadingScheduled : isLoadingUnvalidated
+  // Get status icon and color
+  const getStatusIcon = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "validating":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case "queued":
+        return <Clock className="h-4 w-4 text-orange-500" />
+      case "scheduled":
+        return <Calendar className="h-4 w-4 text-blue-500" />
+      case "published":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      default:
+        return <AlertTriangle className="h-4 w-4 text-gray-500" />
+    }
+  }
+
+  // Get user name by ID
+  const getUserName = (userId: number) => {
+    const foundUser = allUsers.find((u) => u.id === userId)
+    return foundUser ? foundUser.name : `Bruger ${userId}`
+  }
+
+  // Handle edit article
+  const handleEditArticle = (article: Article) => {
+    setEditingArticle(article)
+    setIsEditDialogOpen(true)
+  }
+
+  // Handle delete article
+  const handleDeleteArticle = (article: Article) => {
+    setDeletingArticle(article)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!deletingArticle) return
+
+    setIsDeleting(true)
+
+    try {
+      const response = await fetch(`${API_HOST}/articles/delete_article/${deletingArticle.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        if (activeSiteId) {
+          fetchArticles(activeSiteId)
+        }
+      }
+    } catch (error) {
+      console.error("Error deleting article:", error)
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setDeletingArticle(null)
+    }
+  }
+
+  // Handle save from edit dialog
+  const handleSaveArticle = () => {
+    if (activeSiteId) {
+      fetchArticles(activeSiteId)
+    }
+  }
+
+  // Open URL in new window
+  const openUrl = (url: string) => {
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer")
+    }
+  }
+
+  // Handle publish article
+  const handlePublishArticle = async (article: Article) => {
+    setIsPublishing(article.id)
+
+    try {
+      const publishData = {
+        site_id: article.site_id,
+        title: article.title,
+        teaser: article.teaser,
+        content: article.content,
+        img: article.img,
+        prompt_instructions: article.prompt_instruction,
+        instructions: article.instructions,
+        user_id: article.user_id,
+      }
+
+      console.log("Publishing article:", publishData)
+
+      const response = await fetch(`${API_HOST}/articles/write_article`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(publishData),
+      })
+
+      if (response.ok) {
+        console.log("Article published successfully")
+        if (activeSiteId) {
+          fetchArticles(activeSiteId)
+        }
+      } else {
+        console.error("Failed to publish article:", await response.text())
+      }
+    } catch (error) {
+      console.error("Error publishing article:", error)
+    } finally {
+      setIsPublishing(null)
+    }
+  }
 
   return (
     <ProtectedRoute>
@@ -246,85 +488,13 @@ export default function ArtiklerPage() {
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>Artikler</BreadcrumbPage>
+                    <BreadcrumbPage>Artikler {activeSite && `- ${activeSite.name}`}</BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Planlagte Artikler Card */}
-              <Card
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => router.push("/artikler/planlagte")}
-              >
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5 text-blue-500" />
-                    Planlagte Artikler
-                  </CardTitle>
-                  <CardDescription>Se og administrer alle artikler der er planlagt til udgivelse</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">Artikler med fastsat udgivelsesdato og -tid</p>
-                    <Button variant="ghost" size="sm">
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Afventende Artikler Card */}
-              <Card
-                className="cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => router.push("/artikler/afventende")}
-              >
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-orange-500" />
-                    Afventende Artikler
-                  </CardTitle>
-                  <CardDescription>
-                    Se og administrer artikler der afventer planlægning eller behandling
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Valider nye URLs og administrer ikke-planlagte artikler
-                    </p>
-                    <Button variant="ghost" size="sm">
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Hurtige Handlinger</CardTitle>
-                <CardDescription>Almindelige opgaver for artikel administration</CardDescription>
-              </CardHeader>
-              <CardContent className="flex gap-2">
-                <Button onClick={() => router.push("/artikler/afventende")} className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Valider Ny URL
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/artikler/planlagte")}
-                  className="flex items-center gap-2"
-                >
-                  <Calendar className="h-4 w-4" />
-                  Se Planlagte Artikler
-                </Button>
-              </CardContent>
-            </Card>
-
+          <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
             {/* URL Validation Section */}
             <Card>
               <CardHeader className="pb-3">
@@ -375,57 +545,35 @@ export default function ArtiklerPage() {
               </CardContent>
             </Card>
 
-            {/* Articles Table */}
+            {/* Scheduled Articles Section */}
             <Card>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Artikler</CardTitle>
-                    <CardDescription>Oversigt over alle artikler for dit site</CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant={activeView === "scheduled" ? "default" : "outline"}
-                      onClick={() => setActiveView("scheduled")}
-                      className="flex items-center gap-2"
-                    >
-                      <Calendar className="h-4 w-4" />
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
                       Planlagte Artikler
-                      <Badge variant="secondary" className="ml-1">
-                        {scheduledArticles.length}
-                      </Badge>
-                    </Button>
-                    <Button
-                      variant={activeView === "unvalidated" ? "default" : "outline"}
-                      onClick={() => setActiveView("unvalidated")}
-                      className="flex items-center gap-2"
-                    >
-                      <FileText className="h-4 w-4" />
-                      Ikke Planlagte Artikler
-                      <Badge variant="secondary" className="ml-1">
-                        {unvalidatedArticles.length}
-                      </Badge>
-                    </Button>
+                    </CardTitle>
+                    <CardDescription>
+                      Oversigt over alle planlagte artikler for {activeSite?.name || "dit site"}
+                    </CardDescription>
                   </div>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">
+                    {scheduledArticles.length} artikler
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {isLoadingScheduled ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Indlæser artikler...</span>
+                    <span className="ml-2 text-muted-foreground">Indlæser planlagte artikler...</span>
                   </div>
-                ) : currentArticles.length === 0 ? (
+                ) : scheduledArticles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
-                    {activeView === "scheduled" ? (
-                      <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
-                    ) : (
-                      <FileText className="h-12 w-12 text-muted-foreground mb-2" />
-                    )}
+                    <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">
-                      {activeView === "scheduled"
-                        ? "Ingen planlagte artikler fundet"
-                        : "Ingen ikke-planlagte artikler fundet"}
+                      Ingen planlagte artikler fundet for {activeSite?.name || "dette site"}
                     </p>
                   </div>
                 ) : (
@@ -433,64 +581,185 @@ export default function ArtiklerPage() {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-[60px]">Status</TableHead>
                           <TableHead className="w-[300px]">Titel</TableHead>
-                          <TableHead className="w-[400px]">Teaser</TableHead>
-                          <TableHead className="w-[150px]">Status</TableHead>
-                          {activeView === "scheduled" && (
-                            <TableHead className="w-[180px]">Planlagt Udgivelse</TableHead>
-                          )}
-                          <TableHead className="w-[150px]">Oprettet</TableHead>
-                          <TableHead className="w-[100px]">Link</TableHead>
+                          <TableHead className="w-[100px]">Bruger</TableHead>
+                          <TableHead className="w-[120px]">Oprettet</TableHead>
+                          <TableHead className="w-[150px]">Planlagt</TableHead>
+                          <TableHead className="w-[150px]">Handlinger</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {currentArticles.map((article) => (
+                        {scheduledArticles.map((article) => (
                           <TableRow key={article.id}>
+                            <TableCell>{getStatusIcon(article.status)}</TableCell>
                             <TableCell className="font-medium">
                               <div className="max-w-[280px] truncate" title={article.title}>
                                 {article.title}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="max-w-[380px] truncate text-muted-foreground" title={article.teaser}>
-                                {article.teaser}
+                              <div className="text-sm">{getUserName(article.user_id)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{formatDate(article.scheduled_publish_at)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteArticle(article)}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Slet artikel"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditArticle(article)}
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Rediger artikel"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {article.url && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openUrl(article.url)}
+                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                    title="Åbn artikel URL"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="default"
+                                  size="sm"
+                                  onClick={() => handlePublishArticle(article)}
+                                  disabled={isPublishing === article.id}
+                                  className="ml-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4"
+                                  title="Udgiv artikel"
+                                >
+                                  {isPublishing === article.id ? (
+                                    <>
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                      Udgiver...
+                                    </>
+                                  ) : (
+                                    "Publish"
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Unvalidated Articles Section */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Afventende Artikler
+                    </CardTitle>
+                    <CardDescription>Oversigt over alle afventende artikler for dit site</CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">
+                    {unvalidatedArticles.length} artikler
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoadingUnvalidated ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Indlæser afventende artikler...</span>
+                  </div>
+                ) : unvalidatedArticles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="h-12 w-12 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Ingen afventende artikler fundet</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[60px]">Status</TableHead>
+                          <TableHead className="w-[300px]">Titel</TableHead>
+                          <TableHead className="w-[100px]">Bruger</TableHead>
+                          <TableHead className="w-[120px]">Oprettet</TableHead>
+                          <TableHead className="w-[150px]">Planlagt</TableHead>
+                          <TableHead className="w-[150px]">Handlinger</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {unvalidatedArticles.map((article) => (
+                          <TableRow key={article.id}>
+                            <TableCell>{getStatusIcon(article.status)}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="max-w-[280px] truncate" title={article.title}>
+                                {article.title}
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Badge
-                                variant={
-                                  article.status === "published"
-                                    ? "default"
-                                    : article.status === "scheduled"
-                                      ? "secondary"
-                                      : "outline"
-                                }
-                              >
-                                {article.status}
-                              </Badge>
+                              <div className="text-sm">{getUserName(article.user_id)}</div>
                             </TableCell>
-                            {activeView === "scheduled" && (
-                              <TableCell>
-                                <div className="text-sm">{formatDate(article.scheduled_publish_at)}</div>
-                              </TableCell>
-                            )}
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
+                            </TableCell>
                             <TableCell>
                               <div className="text-sm text-muted-foreground">
-                                {new Date(article.created_at).toLocaleDateString("da-DK")}
+                                {article.scheduled_publish_at
+                                  ? formatDate(article.scheduled_publish_at)
+                                  : "Ikke planlagt"}
                               </div>
                             </TableCell>
                             <TableCell>
-                              {article.url && (
-                                <a
-                                  href={article.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800"
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteArticle(article)}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Slet artikel"
                                 >
-                                  <ExternalLink className="h-4 w-4" />
-                                  Se
-                                </a>
-                              )}
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditArticle(article)}
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Rediger artikel"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {article.url && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openUrl(article.url)}
+                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                    title="Åbn artikel URL"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -503,6 +772,42 @@ export default function ArtiklerPage() {
           </div>
         </SidebarInset>
       </SidebarProvider>
+
+      {/* Edit Article Dialog */}
+      <EditArticleDialog
+        article={editingArticle}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false)
+          setEditingArticle(null)
+        }}
+        onSave={handleSaveArticle}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet Artikel</AlertDialogTitle>
+            <AlertDialogDescription>
+              Er du sikker på at du vil slette artiklen "{deletingArticle?.title}"? Denne handling kan ikke fortrydes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuller</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sletter...
+                </>
+              ) : (
+                "Slet"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProtectedRoute>
   )
 }
