@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "../providers/auth-provider"
 
 type User = {
   id: number
@@ -49,6 +50,7 @@ export default function LinkUserSitePage() {
   const [isLoadingData, setIsLoadingData] = useState(true)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
+  const { user } = useAuth()
 
   // Function to format API error messages
   const formatErrorMessage = (errorData: any): string => {
@@ -81,9 +83,15 @@ export default function LinkUserSitePage() {
   // Fetch users and sites on component mount
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.role) {
+        setError("Bruger rolle ikke tilgængelig")
+        setIsLoadingData(false)
+        return
+      }
+
       try {
-        // Fetch users from /users/info
-        const usersResponse = await fetch(`${API_HOST}/users/info`, {
+        // Fetch users from /admin/all_users/{role}
+        const usersResponse = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -94,8 +102,10 @@ export default function LinkUserSitePage() {
           const usersData = await usersResponse.json()
           console.log("Users response:", usersData)
 
-          // Handle the response structure: {"users": [[id, name, username, password, role], ...]}
-          if (usersData.users && Array.isArray(usersData.users)) {
+          if (usersData.success === false) {
+            setError(usersData.error || "Ikke autoriseret til at hente brugere")
+          } else if (usersData.users && Array.isArray(usersData.users)) {
+            // Handle the response structure: {"users": [[id, name, username, password, role], ...]}
             const formattedUsers = usersData.users.map((userArray: any[]) => ({
               id: userArray[0],
               name: userArray[1],
@@ -113,8 +123,8 @@ export default function LinkUserSitePage() {
           setError("Failed to load users")
         }
 
-        // Fetch sites from /sites/all
-        const sitesResponse = await fetch(`${API_HOST}/sites/all`, {
+        // Fetch sites from /admin/all_sites/{role}
+        const sitesResponse = await fetch(`${API_HOST}/admin/all_sites/${user.role}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -125,14 +135,15 @@ export default function LinkUserSitePage() {
           const sitesData = await sitesResponse.json()
           console.log("Sites response:", sitesData)
 
-          // Handle the response structure: {"sites": [[id, name, logo, description, page_url], ...]}
-          if (sitesData.sites && Array.isArray(sitesData.sites)) {
+          if (sitesData.success === false) {
+            setError(sitesData.error || "Ikke autoriseret til at hente sites")
+          } else if (sitesData.sites && Array.isArray(sitesData.sites)) {
+            // Handle the response structure: {"sites": [[id, name, description, page_url], ...]}
             const formattedSites = sitesData.sites.map((siteArray: any[]) => ({
               id: siteArray[0],
               name: siteArray[1],
-              // Skip logo (siteArray[2])
-              description: siteArray[3],
-              page_url: siteArray[4],
+              description: siteArray[2],
+              page_url: siteArray[3],
             }))
             setSites(formattedSites)
           } else {
@@ -152,7 +163,7 @@ export default function LinkUserSitePage() {
     }
 
     fetchData()
-  }, [])
+  }, [user?.role])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

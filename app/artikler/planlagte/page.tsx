@@ -135,8 +135,13 @@ export default function PlanlagteArtiklerPage() {
 
   // Fetch all users
   const fetchAllUsers = async () => {
+    if (!user?.role) {
+      console.error("User role not available")
+      return
+    }
+
     try {
-      const response = await fetch(`${API_HOST}/users/info`, {
+      const response = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -145,7 +150,9 @@ export default function PlanlagteArtiklerPage() {
 
       if (response.ok) {
         const usersData = await response.json()
-        if (usersData.users && Array.isArray(usersData.users)) {
+        if (usersData.success === false) {
+          console.error("Not authorized to fetch users:", usersData.error)
+        } else if (usersData.users && Array.isArray(usersData.users)) {
           const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
             id: userArray[0],
             name: userArray[1],

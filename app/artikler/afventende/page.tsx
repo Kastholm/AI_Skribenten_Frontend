@@ -184,8 +184,13 @@ export default function AfventendeArtiklerPage() {
 
   // Fetch all users
   const fetchAllUsers = async () => {
+    if (!user?.role) {
+      console.error("User role not available")
+      return
+    }
+
     try {
-      const response = await fetch(`${API_HOST}/users/info`, {
+      const response = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -194,7 +199,9 @@ export default function AfventendeArtiklerPage() {
 
       if (response.ok) {
         const usersData = await response.json()
-        if (usersData.users && Array.isArray(usersData.users)) {
+        if (usersData.success === false) {
+          console.error("Not authorized to fetch users:", usersData.error)
+        } else if (usersData.users && Array.isArray(usersData.users)) {
           // Map users data from array format
           // [id, name, username, password, role]
           const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
