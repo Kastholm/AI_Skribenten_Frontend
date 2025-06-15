@@ -34,7 +34,6 @@ type Article = {
   url: string
   site_id: number
   user_id: number
-  category_id: number
   scheduled_publish_at: string | null
   status: string
   created_at: string
@@ -135,10 +134,9 @@ export default function ArtiklerPage() {
             url: articleArray[5],
             site_id: articleArray[6],
             user_id: articleArray[7],
-            category_id: articleArray[8],
-            scheduled_publish_at: articleArray[9],
-            status: articleArray[10] || "unknown",
-            created_at: articleArray[11],
+            scheduled_publish_at: articleArray[8],
+            status: articleArray[9] || "unknown",
+            created_at: articleArray[10],
           }))
           setScheduledArticles(formattedScheduledArticles)
         }
@@ -165,10 +163,9 @@ export default function ArtiklerPage() {
             url: articleArray[5],
             site_id: articleArray[6],
             user_id: articleArray[7],
-            category_id: articleArray[8],
-            scheduled_publish_at: articleArray[9],
-            status: articleArray[10] || "unvalidated",
-            created_at: articleArray[11],
+            scheduled_publish_at: articleArray[8],
+            status: articleArray[9] || "unvalidated",
+            created_at: articleArray[10],
           }))
           setUnvalidatedArticles(formattedUnvalidatedArticles)
         }

@@ -57,7 +57,6 @@ type Article = {
   prompt_instruction: string
   instructions: string
   user_id: number
-  category_id: number
   created_at: string
   updated_at: string
 }
@@ -121,9 +120,8 @@ export default function PlanlagteArtiklerPage() {
             prompt_instruction: articleArray[11],
             instructions: articleArray[12],
             user_id: articleArray[13],
-            category_id: articleArray[14],
-            created_at: articleArray[15],
-            updated_at: articleArray[16],
+            created_at: articleArray[14],
+            updated_at: articleArray[15],
           }))
           setScheduledArticles(formattedArticles)
         }
@@ -352,7 +350,6 @@ export default function PlanlagteArtiklerPage() {
         prompt_instructions: article.prompt_instruction,
         instructions: article.instructions,
         user_id: article.user_id,
-        category_id: article.category_id,
       }
 
       console.log("Publishing article:", publishData)

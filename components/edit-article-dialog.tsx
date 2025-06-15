@@ -59,13 +59,6 @@ type User = {
   role: string
 }
 
-type Category = {
-  id: number
-  name: string
-  site_id: number
-  description?: string
-}
-
 type EditArticleDialogProps = {
   article: Article | null
   isOpen: boolean
@@ -85,7 +78,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     prompt_instruction: "",
     instructions: "",
     scheduled_publish_at: "",
-    category_id: 1,
     user_id: 1,
     site_id: 1,
     status: "",
@@ -96,12 +88,10 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
   const [siteInfo, setSiteInfo] = useState<Site | null>(null)
   const [userInfo, setUserInfo] = useState<User | null>(null)
   const [allUsers, setAllUsers] = useState<User[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false)
   const [isLoadingSiteInfo, setIsLoadingSiteInfo] = useState(false)
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
   const [error, setError] = useState("")
 
   // Load article data and related info when dialog opens
@@ -117,7 +107,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
   useEffect(() => {
     if (formData.site_id && formData.site_id > 0) {
       fetchSiteInfo(formData.site_id)
-      fetchCategories(formData.site_id)
     }
   }, [formData.site_id])
 
@@ -150,23 +139,19 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
           // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, prompt_instruction, instructions, user_id, category_id, created_at, updated_at
           const data = articleData
           setFormData({
-            id: data[0] || 0, // id
-            site_id: data[1] || 1, // site_id
-            title: data[2] || "", // title
-            teaser: data[3] || "", // teaser
-            content: data[4] || "", // content
-            img: data[5] || "", // img
-            status: data[6] || "", // status
-            response: data[7] || "success", // response
-            scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "", // scheduled_publish_at
-            // data[9] er published_at - springer over
-            url: data[10] || "", // url
-            prompt_instruction: data[11] || "", // prompt_instruction
-            instructions: data[12] || "", // instructions
-            user_id: data[13] || 1, // user_id
-            category_id: data[14] || 1, // category_id
-            // data[15] er created_at
-            // data[16] er updated_at
+            id: data[0] || 0,
+            site_id: data[1] || 1,
+            title: data[2] || "",
+            teaser: data[3] || "",
+            content: data[4] || "",
+            img: data[5] || "",
+            status: data[6] || "",
+            response: data[7] || "success",
+            scheduled_publish_at: data[8] ? new Date(data[8]).toISOString().slice(0, 16) : "",
+            url: data[10] || "",
+            prompt_instruction: data[11] || "",
+            instructions: data[12] || "",
+            user_id: data[13] || 1,
           })
         }
       } else {
@@ -219,39 +204,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       console.error("Error fetching site info:", error)
     } finally {
       setIsLoadingSiteInfo(false)
-    }
-  }
-
-  const fetchCategories = async (siteId: number) => {
-    setIsLoadingCategories(true)
-
-    try {
-      const response = await fetch(`${API_HOST}/categories/get_categories/${siteId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const categoriesData = await response.json()
-        console.log("Categories data:", categoriesData)
-
-        if (Array.isArray(categoriesData)) {
-          // Antager at hver kategori er [id, name, site_id, description]
-          const formattedCategories: Category[] = categoriesData.map((catArray: any[]) => ({
-            id: catArray[0],
-            name: catArray[1],
-            site_id: catArray[2],
-            description: catArray[3],
-          }))
-          setCategories(formattedCategories)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching categories:", error)
-    } finally {
-      setIsLoadingCategories(false)
     }
   }
 
@@ -328,10 +280,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     }
   }
 
-  const handleCategorySelect = (categoryId: string) => {
-    setFormData((prev) => ({ ...prev, category_id: Number.parseInt(categoryId) }))
-  }
-
   const handleSave = async () => {
     setIsSaving(true)
     setError("")
@@ -347,7 +295,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
         prompt_instruction: formData.prompt_instruction,
         instructions: formData.instructions,
         scheduled_publish_at: formData.scheduled_publish_at || "", // Send empty string instead of null
-        category_id: formData.category_id,
         user_id: formData.user_id,
       }
 
@@ -385,7 +332,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       prompt_instruction: "",
       instructions: "",
       scheduled_publish_at: "",
-      category_id: 1,
       user_id: 1,
       site_id: 1,
       status: "",
@@ -396,13 +342,9 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
     setSiteInfo(null)
     setUserInfo(null)
     setAllUsers([])
-    setCategories([])
     setError("")
     onClose()
   }
-
-  // Find den aktuelle kategori
-  const currentCategory = categories.find((cat) => cat.id === formData.category_id)
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -509,7 +451,7 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="scheduled">Planlagt Udgivelse</Label>
                 <Input
@@ -518,41 +460,6 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                   value={formData.scheduled_publish_at}
                   onChange={(e) => handleInputChange("scheduled_publish_at", e.target.value)}
                 />
-              </div>
-
-              {/* Kategori dropdown i stedet for ID input */}
-              <div className="space-y-2">
-                <Label htmlFor="category">Kategori</Label>
-                {isLoadingCategories ? (
-                  <div className="flex items-center gap-2 p-2 border rounded-md">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-muted-foreground">Indlæser kategorier...</span>
-                  </div>
-                ) : categories.length > 0 ? (
-                  <Select value={formData.category_id.toString()} onValueChange={handleCategorySelect}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Vælg kategori" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.id.toString()}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex items-center gap-2 p-2 border rounded-md">
-                    <span className="text-muted-foreground">
-                      {currentCategory ? currentCategory.name : `Kategori ID: ${formData.category_id}`}
-                    </span>
-                  </div>
-                )}
-                {currentCategory && (
-                  <p className="text-xs text-muted-foreground">
-                    {currentCategory.description || `Kategori: ${currentCategory.name}`}
-                  </p>
-                )}
               </div>
 
               {/* Bruger visning (read-only) */}
