@@ -131,6 +131,23 @@ export function ArticleCard({
                   <ExternalLink className="h-3 w-3" />
                 </Button>
               )}
+              {/* Publish Button - only show on hover if enabled */}
+              {showPublishButton && onPublish && (
+                <Button
+                  onClick={() => onPublish(article)}
+                  disabled={isPublishing}
+                  className="ml-2 bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-7"
+                >
+                  {isPublishing ? (
+                    <>
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Udgiver...
+                    </>
+                  ) : (
+                    "Publicer"
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -177,24 +194,6 @@ export function ArticleCard({
           {article.scheduled_publish_at && <div>Planlagt: {formatDate(article.scheduled_publish_at)}</div>}
           {article.published_at && <div>Publiceret: {formatDate(article.published_at)}</div>}
         </div>
-
-        {/* Publish Button */}
-        {showPublishButton && onPublish && (
-          <Button
-            onClick={() => onPublish(article)}
-            disabled={isPublishing}
-            className="w-full bg-green-600 hover:bg-green-700 text-white mt-2"
-          >
-            {isPublishing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Udgiver...
-              </>
-            ) : (
-              "Publish"
-            )}
-          </Button>
-        )}
       </CardContent>
     </Card>
   )

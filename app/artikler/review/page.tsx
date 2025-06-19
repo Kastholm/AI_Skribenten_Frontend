@@ -98,6 +98,7 @@ export default function ReviewArticlesPage() {
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [view, setView] = useState<"table" | "cards">("cards") // Default to cards for review
   const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
+  const [isPublishing, setIsPublishing] = useState<number | null>(null)
 
   // Handle URL validation
   const handleValidateUrl = async () => {
@@ -378,6 +379,45 @@ export default function ReviewArticlesPage() {
     }
   }
 
+  // Handle publish article
+  const handlePublishArticle = async (article: Article) => {
+    setIsPublishing(article.id)
+
+    try {
+      const publishData = {
+        id: article.id,
+        site_id: article.site_id,
+        title: article.title,
+        teaser: article.teaser,
+        content: article.content,
+        img: article.img,
+        prompt_instructions: article.prompt_instruction,
+        instructions: article.instructions,
+        user_id: article.user_id,
+      }
+
+      const response = await fetch(`${API_HOST}/articles/write_article`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(publishData),
+      })
+
+      if (response.ok) {
+        if (activeSiteId) {
+          fetchUnvalidatedArticles(activeSiteId)
+        }
+      } else {
+        console.error("Failed to publish article:", await response.text())
+      }
+    } catch (error) {
+      console.error("Error publishing article:", error)
+    } finally {
+      setIsPublishing(null)
+    }
+  }
+
   // Open URL in new window
   const openUrl = (url: string) => {
     if (url) {
@@ -538,8 +578,10 @@ export default function ReviewArticlesPage() {
                         onEdit={handleEditArticle}
                         onDelete={handleDeleteArticle}
                         onOpenUrl={openUrl}
+                        onPublish={handlePublishArticle}
                         getUserName={getUserName}
-                        showPublishButton={false}
+                        isPublishing={isPublishing === article.id}
+                        showPublishButton={true}
                       />
                     ))}
                   </div>
