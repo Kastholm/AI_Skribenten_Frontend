@@ -64,7 +64,7 @@ export function NavMain() {
       <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
         {/* Artikler dropdown */}
-        <Collapsible asChild className="group/collapsible">
+        <Collapsible asChild className="group/collapsible" defaultOpen={true}>
           <SidebarMenuItem>
             <CollapsibleTrigger asChild>
               <SidebarMenuButton tooltip="Artikler">

@@ -90,57 +90,60 @@ export function ArticleCard({
   }
 
   return (
-    <Card className="h-full flex flex-col hover:shadow-lg transition-shadow duration-200">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2">
-            {getStatusIcon(article.status)}
-            <Badge variant="secondary" className="text-xs">
-              {article.status}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onDelete(article)}
-              className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-              title="Slet artikel"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onEdit(article)}
-              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-              title="Rediger artikel"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            {article.url && (
+    <Card className="h-full flex flex-col hover:shadow-lg transition-all duration-300 group relative overflow-hidden">
+      <CardHeader className="pb-3 relative">
+        {/* Status and action buttons - only visible on hover */}
+        <div className="absolute inset-x-0 top-0 p-3 bg-white/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-y-2 group-hover:translate-y-0 z-10">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2">
+              {getStatusIcon(article.status)}
+              <Badge variant="secondary" className="text-xs">
+                {article.status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => onOpenUrl(article.url)}
-                className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                title="Åbn artikel URL"
+                onClick={() => onDelete(article)}
+                className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                title="Slet artikel"
               >
-                <ExternalLink className="h-4 w-4" />
+                <Trash2 className="h-3 w-3" />
               </Button>
-            )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(article)}
+                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                title="Rediger artikel"
+              >
+                <Edit className="h-3 w-3" />
+              </Button>
+              {article.url && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenUrl(article.url)}
+                  className="h-7 w-7 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                  title="Åbn artikel URL"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col gap-3">
+      <CardContent className="flex-1 flex flex-col gap-3 pt-0">
         {/* Article Image */}
         <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
           {article.img ? (
             <img
               src={article.img || "/placeholder.svg?height=200&width=300"}
               alt={article.title}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
                 e.currentTarget.src = "/placeholder.svg?height=200&width=300"
                 e.currentTarget.alt = "Billede ikke tilgængeligt"
@@ -153,20 +156,20 @@ export function ArticleCard({
           )}
         </div>
 
-        {/* Article Title */}
-        <h3 className="font-semibold text-lg leading-tight line-clamp-2" title={article.title}>
+        {/* Article Title - smaller */}
+        <h3 className="font-semibold text-base leading-tight line-clamp-2" title={article.title}>
           {article.title}
         </h3>
 
-        {/* Article Teaser */}
+        {/* Article Teaser - more space */}
         {article.teaser && (
-          <p className="text-sm text-muted-foreground line-clamp-3 flex-1" title={article.teaser}>
+          <p className="text-sm text-muted-foreground leading-relaxed flex-1" title={article.teaser}>
             {article.teaser}
           </p>
         )}
 
         {/* Article Meta */}
-        <div className="space-y-2 text-xs text-muted-foreground">
+        <div className="space-y-2 text-xs text-muted-foreground border-t pt-3">
           <div className="flex items-center justify-between">
             <span>Oprettet: {formatDate(article.created_at)}</span>
             <span>Af: {getUserName(article.user_id)}</span>
@@ -180,7 +183,7 @@ export function ArticleCard({
           <Button
             onClick={() => onPublish(article)}
             disabled={isPublishing}
-            className="w-full bg-green-600 hover:bg-green-700 text-white"
+            className="w-full bg-green-600 hover:bg-green-700 text-white mt-2"
           >
             {isPublishing ? (
               <>
