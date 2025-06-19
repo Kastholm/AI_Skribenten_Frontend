@@ -97,6 +97,7 @@ export default function ArtiklerPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
   const [isPublishing, setIsPublishing] = useState<number | null>(null)
+  const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
 
   // Handle URL validation
   const handleValidateUrl = async () => {
@@ -122,6 +123,7 @@ export default function ArtiklerPage() {
           url: url,
           site_id: activeSiteId,
           user_id: user.id,
+          type: validationType,
         }),
       })
 
@@ -531,6 +533,44 @@ export default function ArtiklerPage() {
                     )}
                   </Button>
                 </div>
+
+                {/* Type Selection */}
+                <div className="flex items-center gap-6 pt-2">
+                  <Label className="text-sm font-medium">Type:</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="article-type"
+                      checked={validationType === "article"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setValidationType("article")
+                        }
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="article-type" className="text-sm">
+                      Article
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sitemap-type"
+                      checked={validationType === "sitemap"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setValidationType("sitemap")
+                        }
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="sitemap-type" className="text-sm">
+                      Sitemap
+                    </Label>
+                  </div>
+                </div>
+
                 {validationError && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
