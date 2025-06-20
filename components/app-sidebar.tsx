@@ -88,7 +88,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setShutterstockAuth((prev) => ({ ...prev, isLoading: true }))
 
     try {
-      const response = await fetch(`${API_HOST}/auth/start-auth`, {
+      const response = await fetch(`https://db14-86-52-42-195.ngrok-free.app/auth/start-auth`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
