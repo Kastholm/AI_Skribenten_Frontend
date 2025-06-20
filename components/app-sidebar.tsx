@@ -88,21 +88,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setShutterstockAuth((prev) => ({ ...prev, isLoading: true }))
 
     try {
+      console.log("Starting Shutterstock auth...")
+
       const response = await fetch(`https://db14-86-52-42-195.ngrok-free.app/auth/start-auth`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true", // Skip ngrok browser warning
         },
       })
 
+      console.log("Response status:", response.status)
+      console.log("Response headers:", response.headers)
+
       if (response.ok) {
-        const data = await response.json()
-        if (data.auth_url) {
-          // Redirect to Shutterstock auth URL
-          window.location.href = data.auth_url
+        const contentType = response.headers.get("content-type")
+        console.log("Content-Type:", contentType)
+
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json()
+          console.log("Response data:", data)
+
+          if (data.auth_url) {
+            // Redirect to Shutterstock auth URL
+            window.location.href = data.auth_url
+          } else {
+            console.error("No auth_url in response")
+          }
+        } else {
+          const text = await response.text()
+          console.error("Response is not JSON:", text)
         }
       } else {
-        console.error("Failed to start Shutterstock auth")
+        const errorText = await response.text()
+        console.error("Request failed:", response.status, errorText)
       }
     } catch (error) {
       console.error("Error starting Shutterstock auth:", error)
