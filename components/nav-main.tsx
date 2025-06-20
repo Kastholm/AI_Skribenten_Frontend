@@ -84,13 +84,7 @@ export function NavMain() {
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
-
-      {/* Shutterstock Authentication */}
-      <SidebarGroup>
-        <SidebarGroupLabel>Integrations</SidebarGroupLabel>
-        <SidebarMenu>
+          {/* Shutterstock Authentication */}
           <SidebarMenuItem>
             <SidebarMenuButton
               onClick={handleShutterstockLogin}
