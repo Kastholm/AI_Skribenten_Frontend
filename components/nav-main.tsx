@@ -1,116 +1,175 @@
 "use client"
 
-import { SidebarGroupLabel } from "@/components/ui/sidebar"
-
-import { useState, useEffect } from "react"
-import { API_HOST } from "@/app/env"
 import {
-  Sidebar,
+  ChevronRight,
+  UserPlus,
+  Globe,
+  Link,
+  MessageSquare,
+  FileText,
+  Archive,
+  Settings,
+  Calendar,
+  Clock,
+} from "lucide-react"
+import { useAuth } from "@/app/context/auth-context"
+import NextLink from "next/link"
+
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
   SidebarGroup,
-  SidebarItem,
+  SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuItem,
   SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { usePathname } from "next/navigation"
 
 export function NavMain() {
-  const pathname = usePathname()
+  const { user } = useAuth()
+  const isAdmin = user?.role === "admin"
 
-  const [isShutterstockAuthenticated, setIsShutterstockAuthenticated] = useState(false)
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
+  // Create admin items array
+  const adminItems = [
+    {
+      title: "Add User",
+      url: "/add-user",
+      icon: UserPlus,
+    },
+    {
+      title: "Add Site",
+      url: "/add-site",
+      icon: Globe,
+    },
+    {
+      title: "Link User Site",
+      url: "/link-user-site",
+      icon: Link,
+    },
+  ]
 
-  // Check Shutterstock authentication status on component mount
-  useEffect(() => {
-    checkShutterstockAuth()
-  }, [])
-
-  const checkShutterstockAuth = async () => {
-    try {
-      // For now, we'll assume not authenticated until we implement token storage
-      setIsShutterstockAuthenticated(false)
-    } catch (error) {
-      console.error("Error checking Shutterstock auth:", error)
-      setIsShutterstockAuthenticated(false)
-    } finally {
-      setIsCheckingAuth(false)
-    }
-  }
-
-  const handleShutterstockLogin = async () => {
-    try {
-      const response = await fetch(`${API_HOST}/auth/start-auth`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        if (data.auth_url) {
-          // Redirect to Shutterstock auth URL
-          window.location.href = data.auth_url
-        }
-      } else {
-        console.error("Failed to start Shutterstock auth")
-      }
-    } catch (error) {
-      console.error("Error starting Shutterstock auth:", error)
-    }
-  }
+  // Settings items
+  const settingsItems = [
+    {
+      title: "Page Settings",
+      url: "/settings/page",
+      icon: Globe,
+    },
+  ]
 
   return (
-    <Sidebar className="bg-secondary">
-      <SidebarGroup>
-        <SidebarItem href="/dashboard" label="Dashboard" icon="home" />
-        <SidebarItem href="/transactions" label="Transactions" icon="activity" />
-        <SidebarItem href="/billing" label="Billing" icon="credit-card" />
-      </SidebarGroup>
-      <SidebarGroup>
-        <SidebarGroupLabel>Settings</SidebarGroupLabel>
-        <SidebarMenu>
+    <SidebarGroup>
+      <SidebarGroupLabel>Platform</SidebarGroupLabel>
+      <SidebarMenu>
+        {/* Artikler dropdown */}
+        <Collapsible asChild className="group/collapsible" defaultOpen={true}>
           <SidebarMenuItem>
-            <SidebarMenuButton>
-              <div className="flex items-center gap-2 w-full">
-                <span>Profile</span>
-              </div>
-            </SidebarMenuButton>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Artikler">
+                <FileText />
+                <span>Artikler</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild>
+                    <NextLink href="/artikler/scheduled">
+                      <Calendar className="h-4 w-4" />
+                      <span>Scheduled</span>
+                    </NextLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild>
+                    <NextLink href="/artikler/review">
+                      <Clock className="h-4 w-4" />
+                      <span>Review</span>
+                    </NextLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+                <SidebarMenuSubItem>
+                  <SidebarMenuSubButton asChild>
+                    <NextLink href="/artikler/archive">
+                      <Archive className="h-4 w-4" />
+                      <span>Archive</span>
+                    </NextLink>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              </SidebarMenuSub>
+            </CollapsibleContent>
           </SidebarMenuItem>
+        </Collapsible>
+
+        {/* Prompts link - visible for all users */}
+        <SidebarMenuItem>
+          <SidebarMenuButton asChild tooltip="Prompts">
+            <NextLink href="/prompts">
+              <MessageSquare className="h-4 w-4" />
+              <span>Prompts</span>
+            </NextLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+
+        {/* Settings dropdown */}
+        <Collapsible asChild className="group/collapsible">
           <SidebarMenuItem>
-            <SidebarMenuButton>
-              <div className="flex items-center gap-2 w-full">
-                <span>Account</span>
-              </div>
-            </SidebarMenuButton>
+            <CollapsibleTrigger asChild>
+              <SidebarMenuButton tooltip="Settings">
+                <Settings />
+                <span>Settings</span>
+                <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {settingsItems.map((settingsItem) => (
+                  <SidebarMenuSubItem key={settingsItem.title}>
+                    <SidebarMenuSubButton asChild>
+                      <NextLink href={settingsItem.url}>
+                        {settingsItem.icon && <settingsItem.icon className="h-4 w-4" />}
+                        <span>{settingsItem.title}</span>
+                      </NextLink>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                ))}
+              </SidebarMenuSub>
+            </CollapsibleContent>
           </SidebarMenuItem>
-          {/* Shutterstock Authentication */}
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              onClick={handleShutterstockLogin}
-              className={`w-full justify-start ${
-                isShutterstockAuthenticated
-                  ? "text-green-600 hover:text-green-700"
-                  : "text-orange-600 hover:text-orange-700"
-              }`}
-            >
-              <div className="flex items-center gap-2 w-full">
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    isCheckingAuth
-                      ? "bg-gray-400 animate-pulse"
-                      : isShutterstockAuthenticated
-                        ? "bg-green-500"
-                        : "bg-orange-500"
-                  }`}
-                />
-                <span>Shutterstock Login</span>
-                {isShutterstockAuthenticated && <span className="text-xs text-green-600 ml-auto">✓</span>}
-              </div>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroup>
-    </Sidebar>
+        </Collapsible>
+
+        {/* Admin dropdown - only visible for admin users */}
+        {isAdmin && (
+          <Collapsible asChild className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton tooltip="Admin">
+                  <UserPlus />
+                  <span>Admin</span>
+                  <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
+                  {adminItems.map((adminItem) => (
+                    <SidebarMenuSubItem key={adminItem.title}>
+                      <SidebarMenuSubButton asChild>
+                        <NextLink href={adminItem.url}>
+                          {adminItem.icon && <adminItem.icon className="h-4 w-4" />}
+                          <span>{adminItem.title}</span>
+                        </NextLink>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  ))}
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
+        )}
+      </SidebarMenu>
+    </SidebarGroup>
   )
 }
