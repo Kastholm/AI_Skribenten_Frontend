@@ -2,7 +2,7 @@
 
 import type * as React from "react"
 import { useState, useEffect } from "react"
-import { GalleryVerticalEnd, Globe } from "lucide-react"
+import { GalleryVerticalEnd, Globe, Camera } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -23,6 +23,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [userSites, setUserSites] = useState<Site[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activeSite, setActiveSite] = useState<Site | null>(null)
+  const [shutterstockAuth, setShutterstockAuth] = useState<{
+    isAuthenticated: boolean
+    isLoading: boolean
+  }>({
+    isAuthenticated: false,
+    isLoading: false,
+  })
 
   // Fetch user sites when component mounts or user changes
   useEffect(() => {
@@ -77,6 +84,33 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     fetchUserSites()
   }, [user?.id])
 
+  const handleShutterstockLogin = async () => {
+    setShutterstockAuth((prev) => ({ ...prev, isLoading: true }))
+
+    try {
+      const response = await fetch(`${API_HOST}/auth/start-auth`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.auth_url) {
+          // Redirect to Shutterstock auth URL
+          window.location.href = data.auth_url
+        }
+      } else {
+        console.error("Failed to start Shutterstock auth")
+      }
+    } catch (error) {
+      console.error("Error starting Shutterstock auth:", error)
+    } finally {
+      setShutterstockAuth((prev) => ({ ...prev, isLoading: false }))
+    }
+  }
+
   // Prepare data for components
   const userData = {
     name: user?.name || "User",
@@ -117,6 +151,29 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain />
+        <div className="mt-auto px-3 pb-3">
+          <button
+            onClick={handleShutterstockLogin}
+            disabled={shutterstockAuth.isLoading}
+            className={`w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-colors ${
+              shutterstockAuth.isAuthenticated
+                ? "bg-green-100 text-green-800 hover:bg-green-200"
+                : "bg-orange-100 text-orange-800 hover:bg-orange-200"
+            } disabled:opacity-50`}
+          >
+            <Camera className="h-4 w-4" />
+            <div className="flex flex-col items-start">
+              <span className="font-medium">Shutterstock Login</span>
+              <span className="text-xs opacity-75">
+                {shutterstockAuth.isLoading
+                  ? "Connecting..."
+                  : shutterstockAuth.isAuthenticated
+                    ? "Connected"
+                    : "Not connected"}
+              </span>
+            </div>
+          </button>
+        </div>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userData} />
