@@ -1,17 +1,17 @@
 "use client"
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
+  AlertCircle,
+  Clock,
+  CheckCircle,
+  ExternalLink,
   Edit,
   Trash2,
-  ExternalLink,
-  Calendar,
-  Clock,
-  AlertCircle,
-  CheckCircle,
   AlertTriangle,
+  Calendar,
   Loader2,
 } from "lucide-react"
 
@@ -34,7 +34,7 @@ type Article = {
   updated_at: string
 }
 
-type ArticleCardProps = {
+interface ArticleCardProps {
   article: Article
   onEdit: (article: Article) => void
   onDelete: (article: Article) => void
@@ -55,24 +55,6 @@ export function ArticleCard({
   isPublishing = false,
   showPublishButton = false,
 }: ArticleCardProps) {
-  // Format date string
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Ikke angivet"
-
-    const date = new Date(dateString)
-    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
-      return "Ugyldig dato"
-    }
-
-    return date.toLocaleDateString("da-DK", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
   // Get status icon and color
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -89,110 +71,110 @@ export function ArticleCard({
     }
   }
 
+  // Format date string
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Ikke planlagt"
+
+    const date = new Date(dateString)
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+      return "Ugyldig dato"
+    }
+
+    return date.toLocaleDateString("da-DK", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
+  }
+
   return (
-    <Card className="h-full flex flex-col hover:shadow-lg transition-all duration-300 group relative overflow-hidden">
-      <CardHeader className="pb-3 relative">
-        {/* Status and action buttons - only visible on hover */}
-        <div className="absolute inset-x-0 top-0 p-3 bg-white/95 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 transform -translate-y-2 group-hover:translate-y-0 z-10">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {getStatusIcon(article.status)}
-              <Badge variant="secondary" className="text-xs">
-                {article.status}
-              </Badge>
-            </div>
+    <Card className="group relative overflow-hidden transition-all duration-300 hover:shadow-lg h-[400px] flex flex-col">
+      {/* Hover Overlay with Status and Actions */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 flex flex-col">
+        {/* Status Badge at Top */}
+        <div className="p-4 flex justify-between items-start">
+          <Badge variant="secondary" className="bg-white/90 text-black">
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onDelete(article)}
-                className="h-7 w-7 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                title="Slet artikel"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onEdit(article)}
-                className="h-7 w-7 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                title="Rediger artikel"
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-              {article.url && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenUrl(article.url)}
-                  className="h-7 w-7 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                  title="Åbn artikel URL"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
-              )}
-              {/* Publish Button - only show on hover if enabled */}
-              {showPublishButton && onPublish && (
-                <Button
-                  onClick={() => onPublish(article)}
-                  disabled={isPublishing}
-                  className="ml-2 bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1 h-7"
-                >
-                  {isPublishing ? (
-                    <>
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Udgiver...
-                    </>
-                  ) : (
-                    "Publicer"
-                  )}
-                </Button>
-              )}
+              {getStatusIcon(article.status)}
+              <span className="capitalize">{article.status}</span>
             </div>
-          </div>
+          </Badge>
         </div>
-      </CardHeader>
 
-      <CardContent className="flex-1 flex flex-col gap-3 pt-0">
-        {/* Article Image */}
-        <div className="aspect-video w-full overflow-hidden rounded-md bg-muted">
-          {article.img ? (
-            <img
-              src={article.img || "/placeholder.svg?height=200&width=300"}
-              alt={article.title}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              onError={(e) => {
-                e.currentTarget.src = "/placeholder.svg?height=200&width=300"
-                e.currentTarget.alt = "Billede ikke tilgængeligt"
-              }}
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-muted-foreground">
-              <span className="text-sm">Intet billede</span>
-            </div>
+        {/* Action Buttons at Bottom */}
+        <div className="mt-auto p-4 space-y-2">
+          {/* Publish Button */}
+          {showPublishButton && onPublish && (
+            <Button
+              onClick={() => onPublish(article)}
+              disabled={isPublishing}
+              className="w-full bg-green-600 hover:bg-green-700 text-white h-8"
+            >
+              {isPublishing ? (
+                <>
+                  <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  Publicerer...
+                </>
+              ) : (
+                "Publicer"
+              )}
+            </Button>
           )}
-        </div>
 
-        {/* Article Title - smaller */}
-        <h3 className="font-semibold text-base leading-tight line-clamp-2" title={article.title}>
-          {article.title}
-        </h3>
-
-        {/* Article Teaser - more space */}
-        {article.teaser && (
-          <p className="text-sm text-muted-foreground leading-relaxed flex-1" title={article.teaser}>
-            {article.teaser}
-          </p>
-        )}
-
-        {/* Article Meta */}
-        <div className="space-y-2 text-xs text-muted-foreground border-t pt-3">
-          <div className="flex items-center justify-between">
-            <span>Oprettet: {formatDate(article.created_at)}</span>
-            <span>Af: {getUserName(article.user_id)}</span>
+          {/* Action Buttons Row */}
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onDelete(article)}
+              className="flex-1 h-7 text-red-600 hover:text-red-800 hover:bg-red-50"
+              title="Slet artikel"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onEdit(article)}
+              className="flex-1 h-7 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+              title="Rediger artikel"
+            >
+              <Edit className="h-3 w-3" />
+            </Button>
+            {article.url && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onOpenUrl(article.url)}
+                className="flex-1 h-7 text-green-600 hover:text-green-800 hover:bg-green-50"
+                title="Åbn artikel URL"
+              >
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            )}
           </div>
-          {article.scheduled_publish_at && <div>Planlagt: {formatDate(article.scheduled_publish_at)}</div>}
-          {article.published_at && <div>Publiceret: {formatDate(article.published_at)}</div>}
+        </div>
+      </div>
+
+      {/* Card Content */}
+      <div className="relative overflow-hidden h-48">
+        <img
+          src={article.img || "/placeholder.svg?height=200&width=400&query=article"}
+          alt={article.title}
+          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+      </div>
+
+      <CardContent className="p-4 flex-1 flex flex-col">
+        <h3 className="font-medium text-base mb-2 line-clamp-2 leading-tight">{article.title}</h3>
+
+        <p className="text-sm text-muted-foreground mb-4 line-clamp-4 flex-1">{article.teaser}</p>
+
+        <div className="border-t pt-3 mt-auto">
+          <div className="flex justify-between items-center text-xs text-muted-foreground">
+            <span>{getUserName(article.user_id)}</span>
+            <span>{formatDate(article.created_at)}</span>
+          </div>
         </div>
       </CardContent>
     </Card>
