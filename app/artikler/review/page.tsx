@@ -189,7 +189,7 @@ export default function ReviewArticlesPage() {
 
   // Fetch all users
   const fetchAllUsers = async () => {
-    // Only fetch users if user exists and has a role
+    // Skip if user or role is not available
     if (!user?.role) {
       console.log("User role not available, skipping fetchAllUsers")
       return
@@ -262,10 +262,7 @@ export default function ReviewArticlesPage() {
     }
 
     fetchUserSites()
-    // Only call fetchAllUsers if user is fully loaded
-    if (user?.role) {
-      fetchAllUsers()
-    }
+    fetchAllUsers()
   }, [user?.id, user?.role])
 
   // Listen for site changes from localStorage
