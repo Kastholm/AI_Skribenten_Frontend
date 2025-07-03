@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CaretSortIcon, PlusIcon } from "@radix-ui/react-icons"
+import { ChevronsUpDown, Plus } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -28,9 +28,32 @@ export function TeamSwitcher({
   const { isMobile } = useSidebar()
   const [activeTeam, setActiveTeam] = React.useState(teams[0])
 
-  const handleTeamSelect = (team: (typeof teams)[0], index: number) => {
+  const handleTeamChange = (team: (typeof teams)[0], index: number) => {
     setActiveTeam(team)
     onTeamChange?.(index)
+
+    // Store the active site in localStorage and dispatch custom event
+    const siteData = {
+      id: index + 1, // This should be the actual site ID
+      name: team.name,
+      page_url: team.plan,
+    }
+
+    localStorage.setItem("activeSite", JSON.stringify(siteData))
+
+    // Dispatch custom event for same-tab communication
+    window.dispatchEvent(new CustomEvent("activeSiteChanged"))
+  }
+
+  // Update active team when teams change
+  React.useEffect(() => {
+    if (teams.length > 0 && !activeTeam) {
+      setActiveTeam(teams[0])
+    }
+  }, [teams, activeTeam])
+
+  if (!activeTeam && teams.length > 0) {
+    return null // Loading state
   }
 
   return (
@@ -49,7 +72,7 @@ export function TeamSwitcher({
                 <span className="truncate font-semibold">{activeTeam.name}</span>
                 <span className="truncate text-xs">{activeTeam.plan}</span>
               </div>
-              <CaretSortIcon className="ml-auto" />
+              <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -60,20 +83,23 @@ export function TeamSwitcher({
           >
             <DropdownMenuLabel className="text-xs text-muted-foreground">Sites</DropdownMenuLabel>
             {teams.map((team, index) => (
-              <DropdownMenuItem key={team.name} onClick={() => handleTeamSelect(team, index)} className="gap-2 p-2">
+              <DropdownMenuItem key={team.name} onClick={() => handleTeamChange(team, index)} className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-sm border">
                   <team.logo className="size-4 shrink-0" />
                 </div>
-                {team.name}
+                <div className="flex flex-col">
+                  <span className="font-medium">{team.name}</span>
+                  <span className="text-xs text-muted-foreground">{team.plan}</span>
+                </div>
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
+            <DropdownMenuItem className="gap-2 p-2" disabled>
               <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                <PlusIcon className="size-4" />
+                <Plus className="size-4" />
               </div>
-              <div className="font-medium text-muted-foreground">Add site</div>
+              <div className="font-medium text-muted-foreground">Contact admin for more sites</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

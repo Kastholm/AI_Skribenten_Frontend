@@ -1,33 +1,33 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Grid3X3, List } from "lucide-react"
+import { Table, Grid } from "lucide-react"
 
-interface ViewToggleProps {
-  view: "table" | "card"
-  onViewChange: (view: "table" | "card") => void
+type ViewToggleProps = {
+  view: "table" | "cards"
+  onViewChange: (view: "table" | "cards") => void
 }
 
 export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
   return (
-    <div className="flex items-center gap-1 border rounded-lg p-1">
+    <div className="flex items-center gap-1 border rounded-md p-1">
       <Button
         variant={view === "table" ? "default" : "ghost"}
         size="sm"
         onClick={() => onViewChange("table")}
         className="h-8 px-3"
       >
-        <List className="h-4 w-4" />
-        <span className="ml-1 hidden sm:inline">Table</span>
+        <Table className="h-4 w-4 mr-1" />
+        Table
       </Button>
       <Button
-        variant={view === "card" ? "default" : "ghost"}
+        variant={view === "cards" ? "default" : "ghost"}
         size="sm"
-        onClick={() => onViewChange("card")}
+        onClick={() => onViewChange("cards")}
         className="h-8 px-3"
       >
-        <Grid3X3 className="h-4 w-4" />
-        <span className="ml-1 hidden sm:inline">Cards</span>
+        <Grid className="h-4 w-4 mr-1" />
+        Cards
       </Button>
     </div>
   )

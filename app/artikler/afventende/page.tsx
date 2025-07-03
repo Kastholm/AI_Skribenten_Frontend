@@ -1,170 +1,352 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect } from "react"
+import ProtectedRoute from "../../components/protected-route"
+import { AppSidebar } from "@/components/app-sidebar"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+import { Separator } from "@/components/ui/separator"
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { useAuth } from "../../context/auth-context"
+import { API_HOST } from "../../env"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
+import {
+  AlertCircle,
+  Clock,
+  Loader2,
+  CheckCircle,
+  ExternalLink,
+  Edit,
+  Trash2,
+  AlertTriangle,
+  Calendar,
+} from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Trash2, Edit, CheckCircle } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EditArticleDialog } from "@/components/edit-article-dialog"
-import ProtectedRoute from "@/app/components/protected-route"
-import { API_HOST } from "@/app/env"
-import { useAuth } from "@/app/context/auth-context"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-interface Article {
+type Article = {
   id: number
+  site_id: number
   title: string
   teaser: string
-  url: string
+  content: string
+  img: string
   status: string
+  response: string
+  scheduled_publish_at: string | null
+  published_at: string | null
+  url: string
+  prompt_instruction: string
+  instructions: string
+  user_id: number
   created_at: string
+  updated_at: string
+}
+
+type User = {
+  id: number
+  name: string
+  username: string
+  role: string
 }
 
 export default function AfventendeArtiklerPage() {
   const { user } = useAuth()
   const [url, setUrl] = useState("")
-  const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
-  const [articles, setArticles] = useState<Article[]>([])
-  const [loadingArticles, setLoadingArticles] = useState(true)
+  const [isValidating, setIsValidating] = useState(false)
+  const [validationError, setValidationError] = useState("")
+  const [validationSuccess, setValidationSuccess] = useState("")
+  const [unvalidatedArticles, setUnvalidatedArticles] = useState<Article[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [allUsers, setAllUsers] = useState<User[]>([])
+  const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
 
-  // Fetch pending articles
-  useEffect(() => {
-    const fetchPendingArticles = async () => {
-      try {
-        const response = await fetch(`${API_HOST}/articles/pending`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        })
+  // Handle URL validation
+  const handleValidateUrl = async () => {
+    setValidationError("")
+    setValidationSuccess("")
 
-        if (response.ok) {
-          const data = await response.json()
-          setArticles(data.articles || [])
-        } else {
-          console.error("Failed to fetch pending articles")
-        }
-      } catch (error) {
-        console.error("Error fetching pending articles:", error)
-      } finally {
-        setLoadingArticles(false)
-      }
+    if (!activeSiteId || !user?.id) {
+      setValidationError("Mangler site eller bruger information")
+      return
     }
 
-    fetchPendingArticles()
-  }, [])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setMessage("")
+    setIsValidating(true)
 
     try {
+      console.log("Sending URL validation with:", { url, site_id: activeSiteId, user_id: user.id })
+
       const response = await fetch(`${API_HOST}/articles/validate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
           url: url,
-          site_id: 1, // You might want to get this from context or props
-          user_id: user?.id,
+          site_id: activeSiteId,
+          user_id: user.id,
           type: validationType,
         }),
       })
 
       if (response.ok) {
-        const result = await response.json()
-        setMessage(`Success: ${result.message || "URL validated successfully"}`)
-        setUrl("")
-        // Refresh the articles list
-        window.location.reload()
+        setValidationSuccess("URL validated successfully!")
+        setUrl("") // Clear the input
+        console.log("URL validation successful for:", url)
+
+        // Refresh articles after validation
+        if (activeSiteId) {
+          fetchUnvalidatedArticles(activeSiteId)
+        }
       } else {
-        const error = await response.json()
-        setMessage(`Error: ${error.detail || "Failed to validate URL"}`)
+        const errorData = await response.json().catch(() => ({ error: "Failed to validate URL" }))
+        console.error("Validation error response:", errorData)
+        setValidationError(errorData.error || "Failed to validate URL")
       }
     } catch (error) {
-      setMessage("Error: Failed to validate URL")
+      console.error("Error validating URL:", error)
+      setValidationError("An error occurred while validating the URL")
     } finally {
-      setLoading(false)
+      setIsValidating(false)
     }
   }
 
-  const handleDelete = async (articleId: number) => {
+  // Fetch unvalidated articles for a specific site
+  const fetchUnvalidatedArticles = async (siteId: number) => {
+    setIsLoading(true)
+
     try {
-      const response = await fetch(`${API_HOST}/articles/${articleId}`, {
-        method: "DELETE",
+      const response = await fetch(`${API_HOST}/articles/unvalidated_articles/${siteId}`, {
+        method: "GET",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
         },
       })
 
       if (response.ok) {
-        setArticles(articles.filter((article) => article.id !== articleId))
-      } else {
-        console.error("Failed to delete article")
+        const data = await response.json()
+        if (Array.isArray(data)) {
+          // Map articles data from array format to object format
+          // Korrekt mapping baseret på tabel strukturen:
+          // id, site_id, title, teaser, content, img, status, response, scheduled_publish_at, published_at, url, prompt_instruction, instructions, user_id, category_id, created_at, updated_at
+          const formattedArticles: Article[] = data.map((articleArray: any[]) => ({
+            id: articleArray[0],
+            site_id: articleArray[1],
+            title: articleArray[2],
+            teaser: articleArray[3],
+            content: articleArray[4],
+            img: articleArray[5],
+            status: articleArray[6],
+            response: articleArray[7],
+            scheduled_publish_at: articleArray[8],
+            published_at: articleArray[9],
+            url: articleArray[10],
+            prompt_instruction: articleArray[11],
+            instructions: articleArray[12],
+            user_id: articleArray[13],
+            created_at: articleArray[14],
+            updated_at: articleArray[15],
+          }))
+          setUnvalidatedArticles(formattedArticles)
+        }
       }
     } catch (error) {
-      console.error("Error deleting article:", error)
+      console.error("Error fetching unvalidated articles:", error)
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleEdit = (article: Article) => {
+  // Fetch all users
+  const fetchAllUsers = async () => {
+    if (!user?.role) {
+      console.error("User role not available")
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      if (response.ok) {
+        const usersData = await response.json()
+        if (usersData.success === false) {
+          console.error("Not authorized to fetch users:", usersData.error)
+        } else if (usersData.users && Array.isArray(usersData.users)) {
+          // Map users data from array format
+          // [id, name, username, password, role]
+          const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
+            id: userArray[0],
+            name: userArray[1],
+            username: userArray[2],
+            role: userArray[4],
+          }))
+          setAllUsers(formattedUsers)
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error)
+    }
+  }
+
+  // Get active site ID from user's sites
+  useEffect(() => {
+    const fetchUserSites = async () => {
+      if (!user?.id) return
+
+      try {
+        const response = await fetch(`${API_HOST}/users/sites/${user.id}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.sites && Array.isArray(data.sites) && data.sites.length > 0) {
+            // Use the first site for now
+            const firstSiteId = data.sites[0][0] // First site's ID
+            setActiveSiteId(firstSiteId)
+            fetchUnvalidatedArticles(firstSiteId)
+            fetchAllUsers()
+          } else {
+            setIsLoading(false)
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching user sites:", error)
+        setIsLoading(false)
+      }
+    }
+
+    fetchUserSites()
+  }, [user?.id])
+
+  // Format date string
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "Ikke planlagt"
+
+    // Check for valid date
+    const date = new Date(dateString)
+    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
+      return "Ugyldig dato"
+    }
+
+    return date.toLocaleDateString("da-DK", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  }
+
+  // Get status icon and color
+  const getStatusIcon = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case "validating":
+        return <AlertCircle className="h-4 w-4 text-red-500" />
+      case "queued":
+        return <Clock className="h-4 w-4 text-orange-500" />
+      case "scheduled":
+        return <Calendar className="h-4 w-4 text-blue-500" />
+      case "published":
+        return <CheckCircle className="h-4 w-4 text-green-500" />
+      default:
+        return <AlertTriangle className="h-4 w-4 text-gray-500" />
+    }
+  }
+
+  // Get user name by ID
+  const getUserName = (userId: number) => {
+    const foundUser = allUsers.find((u) => u.id === userId)
+    return foundUser ? foundUser.name : `Bruger ${userId}`
+  }
+
+  // Handle edit article
+  const handleEditArticle = (article: Article) => {
     setEditingArticle(article)
     setIsEditDialogOpen(true)
   }
 
-  const handleSaveEdit = async (updatedArticle: Article) => {
+  // Handle delete article
+  const handleDeleteArticle = (article: Article) => {
+    setDeletingArticle(article)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Confirm delete
+  const confirmDelete = async () => {
+    if (!deletingArticle) return
+
+    setIsDeleting(true)
+
     try {
-      const response = await fetch(`${API_HOST}/articles/${updatedArticle.id}`, {
-        method: "PUT",
+      const response = await fetch(`${API_HOST}/articles/delete_article/${deletingArticle.id}`, {
+        method: "DELETE",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({
-          title: updatedArticle.title,
-          teaser: updatedArticle.teaser,
-          url: updatedArticle.url,
-        }),
       })
 
       if (response.ok) {
-        setArticles(articles.map((article) => (article.id === updatedArticle.id ? updatedArticle : article)))
-      } else {
-        console.error("Failed to update article")
+        // Refresh articles list
+        if (activeSiteId) {
+          fetchUnvalidatedArticles(activeSiteId)
+        }
       }
     } catch (error) {
-      console.error("Error updating article:", error)
+      console.error("Error deleting article:", error)
+    } finally {
+      setIsDeleting(false)
+      setIsDeleteDialogOpen(false)
+      setDeletingArticle(null)
     }
   }
 
-  const handleApprove = async (articleId: number) => {
-    try {
-      const response = await fetch(`${API_HOST}/articles/${articleId}/approve`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      })
+  // Handle save from edit dialog
+  const handleSaveArticle = () => {
+    if (activeSiteId) {
+      fetchUnvalidatedArticles(activeSiteId)
+    }
+  }
 
-      if (response.ok) {
-        // Remove from pending list
-        setArticles(articles.filter((article) => article.id !== articleId))
-      } else {
-        console.error("Failed to approve article")
-      }
-    } catch (error) {
-      console.error("Error approving article:", error)
+  // Open URL in new window
+  const openUrl = (url: string) => {
+    if (url) {
+      window.open(url, "_blank", "noopener,noreferrer")
     }
   }
 
@@ -173,123 +355,258 @@ export default function AfventendeArtiklerPage() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <div className="flex flex-1 flex-col gap-6 p-6">
-            <div>
-              <h1 className="text-3xl font-bold">Afventende Artikler</h1>
-              <p className="text-muted-foreground">Valider nye URLs og administrer afventende artikler</p>
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem className="hidden md:block">
+                    <BreadcrumbLink href="/">AI Skribenten</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="hidden md:block" />
+                  <BreadcrumbItem>
+                    <BreadcrumbLink href="/artikler">Artikler</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator className="hidden md:block" />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Afventende Artikler</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
             </div>
-
+          </header>
+          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
             {/* URL Validation Section */}
             <Card>
-              <CardHeader>
-                <CardTitle>Valider URL</CardTitle>
-                <CardDescription>Indtast en URL for at validere og oprette en ny artikel</CardDescription>
+              <CardHeader className="pb-3">
+                <CardTitle>Valider Artikel URL</CardTitle>
+                <CardDescription>Indtast enhver URL - alle URLs accepteres og behandles af systemet</CardDescription>
               </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="url">URL</Label>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="url" className="sr-only">
+                      URL
+                    </Label>
                     <Input
                       id="url"
-                      type="url"
+                      placeholder="Indtast enhver URL..."
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      placeholder="https://example.com/article"
-                      required
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          handleValidateUrl()
+                        }
+                      }}
                     />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label>Type:</Label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={validationType === "article"}
-                          onChange={() => setValidationType("article")}
-                          className="rounded"
-                        />
-                        <span>Article</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          checked={validationType === "sitemap"}
-                          onChange={() => setValidationType("sitemap")}
-                          className="rounded"
-                        />
-                        <span>Sitemap</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {message && (
-                    <div className={`text-sm ${message.includes("Error") ? "text-red-500" : "text-green-500"}`}>
-                      {message}
-                    </div>
-                  )}
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Validerer..." : "Valider URL"}
+                  <Button onClick={handleValidateUrl} disabled={isValidating || !activeSiteId || !user?.id}>
+                    {isValidating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Validerer...
+                      </>
+                    ) : (
+                      "Valider"
+                    )}
                   </Button>
-                </form>
-              </CardContent>
-            </Card>
+                </div>
 
-            {/* Pending Articles List */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Afventende Artikler</CardTitle>
-                <CardDescription>Artikler der afventer godkendelse</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {loadingArticles ? (
-                  <div>Loading articles...</div>
-                ) : articles.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">Ingen afventende artikler</div>
-                ) : (
-                  <div className="space-y-4">
-                    {articles.map((article) => (
-                      <div key={article.id} className="flex items-center justify-between p-4 border rounded-lg">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{article.title}</h3>
-                          <p className="text-sm text-muted-foreground">{article.teaser}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary">{article.status}</Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(article.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(article)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleApprove(article.id)}>
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => handleDelete(article.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                {/* Type Selection */}
+                <div className="flex items-center gap-6 pt-2">
+                  <Label className="text-sm font-medium">Type:</Label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="article-type"
+                      checked={validationType === "article"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setValidationType("article")
+                        }
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="article-type" className="text-sm">
+                      Article
+                    </Label>
                   </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="sitemap-type"
+                      checked={validationType === "sitemap"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setValidationType("sitemap")
+                        }
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <Label htmlFor="sitemap-type" className="text-sm">
+                      Sitemap
+                    </Label>
+                  </div>
+                </div>
+
+                {validationError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{validationError}</AlertDescription>
+                  </Alert>
+                )}
+                {validationSuccess && (
+                  <Alert className="bg-green-50 border-green-200">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <AlertDescription className="text-green-800">{validationSuccess}</AlertDescription>
+                  </Alert>
                 )}
               </CardContent>
             </Card>
 
-            <EditArticleDialog
-              article={editingArticle}
-              isOpen={isEditDialogOpen}
-              onClose={() => {
-                setIsEditDialogOpen(false)
-                setEditingArticle(null)
-              }}
-              onSave={handleSaveEdit}
-            />
+            {/* Unvalidated Articles Table */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Afventende Artikler
+                    </CardTitle>
+                    <CardDescription>Oversigt over alle afventende artikler for dit site</CardDescription>
+                  </div>
+                  <Badge variant="secondary" className="text-lg px-3 py-1">
+                    {unvalidatedArticles.length} artikler
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Indlæser afventende artikler...</span>
+                  </div>
+                ) : unvalidatedArticles.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Clock className="h-12 w-12 text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">Ingen afventende artikler fundet</p>
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[60px]">Status</TableHead>
+                          <TableHead className="w-[300px]">Titel</TableHead>
+                          <TableHead className="w-[100px]">Bruger</TableHead>
+                          <TableHead className="w-[120px]">Oprettet</TableHead>
+                          <TableHead className="w-[150px]">Planlagt</TableHead>
+                          <TableHead className="w-[150px]">Handlinger</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {unvalidatedArticles.map((article) => (
+                          <TableRow key={article.id}>
+                            <TableCell>{getStatusIcon(article.status)}</TableCell>
+                            <TableCell className="font-medium">
+                              <div className="max-w-[280px] truncate" title={article.title}>
+                                {article.title}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">{getUserName(article.user_id)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm text-muted-foreground">
+                                {article.scheduled_publish_at
+                                  ? formatDate(article.scheduled_publish_at)
+                                  : "Ikke planlagt"}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteArticle(article)}
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
+                                  title="Slet artikel"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditArticle(article)}
+                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                  title="Rediger artikel"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                {article.url && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openUrl(article.url)}
+                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
+                                    title="Åbn artikel URL"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </SidebarInset>
       </SidebarProvider>
+
+      {/* Edit Article Dialog */}
+      <EditArticleDialog
+        article={editingArticle}
+        isOpen={isEditDialogOpen}
+        onClose={() => {
+          setIsEditDialogOpen(false)
+          setEditingArticle(null)
+        }}
+        onSave={handleSaveArticle}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Slet Artikel</AlertDialogTitle>
+            <AlertDialogDescription>
+              Er du sikker på at du vil slette artiklen "{deletingArticle?.title}"? Denne handling kan ikke fortrydes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuller</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sletter...
+                </>
+              ) : (
+                "Slet"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ProtectedRoute>
   )
 }

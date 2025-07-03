@@ -1,82 +1,83 @@
 "use client"
 
-import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { API_HOST } from "@/app/env"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { API_HOST } from "../env"
 
-interface User {
+type User = {
   id: number
-  username: string
   name: string
+  username: string
   role: string
 }
 
-interface AuthContextType {
+type AuthContextType = {
   user: User | null
-  login: (username: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<{ success: boolean; error?: string }>
   logout: () => void
-  loading: boolean
+  isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
 
   useEffect(() => {
-    // Check if user is logged in on mount
-    const token = localStorage.getItem("token")
-    if (token) {
-      // Verify token with backend
-      fetch(`${API_HOST}/auth/verify`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.user) {
-            setUser(data.user)
-          } else {
-            localStorage.removeItem("token")
-          }
-        })
-        .catch(() => {
-          localStorage.removeItem("token")
-        })
-        .finally(() => {
-          setLoading(false)
-        })
-    } else {
-      setLoading(false)
+    // Check if user is stored in localStorage on initial load
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser))
+      } catch (e) {
+        localStorage.removeItem("user")
+      }
     }
+    setIsLoading(false)
   }, [])
 
   const login = async (username: string, password: string) => {
-    const response = await fetch(`${API_HOST}/auth/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ username, password }),
-    })
+    try {
+      const response = await fetch(`${API_HOST}/users/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      })
 
-    if (!response.ok) {
-      throw new Error("Login failed")
+      const rawText = await response.text()
+
+      let data
+      try {
+        data = JSON.parse(rawText)
+      } catch (e) {
+        console.error("Failed to parse JSON response:", e)
+        return { success: false, error: "Invalid response format" }
+      }
+
+      if (data.success) {
+        setUser(data.user)
+        localStorage.setItem("user", JSON.stringify(data.user))
+        return { success: true }
+      } else {
+        return { success: false, error: data.error || "Login failed" }
+      }
+    } catch (error) {
+      console.error("Login error:", error)
+      return { success: false, error: "Network error occurred" }
     }
-
-    const data = await response.json()
-    localStorage.setItem("token", data.access_token)
-    setUser(data.user)
   }
 
   const logout = () => {
-    localStorage.removeItem("token")
     setUser(null)
+    localStorage.removeItem("user")
+    router.push("/login")
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, loading }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
