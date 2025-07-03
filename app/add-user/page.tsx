@@ -3,153 +3,132 @@
 import type React from "react"
 
 import { useState } from "react"
-import AdminRoute from "../components/admin-route"
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { API_HOST } from "../env"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import ProtectedRoute from "@/app/components/protected-route"
+import AdminRoute from "@/app/components/admin-route"
+import { API_HOST } from "@/app/env"
 
 export default function AddUserPage() {
   const [formData, setFormData] = useState({
-    name: "",
     username: "",
     password: "",
+    name: "",
+    role: "user",
   })
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [success, setSuccess] = useState("")
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
-    setSuccess("")
-    setIsLoading(true)
+    setLoading(true)
+    setMessage("")
 
     try {
-      const response = await fetch(`${API_HOST}/users/register`, {
+      const response = await fetch(`${API_HOST}/users/create`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify(formData),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
-        setSuccess("User registered successfully!")
-        setFormData({
-          name: "",
-          username: "",
-          password: "",
-        })
+        setMessage("User created successfully!")
+        setFormData({ username: "", password: "", name: "", role: "user" })
       } else {
-        setError(data.error || "Failed to register user")
+        const error = await response.json()
+        setMessage(`Error: ${error.detail || "Failed to create user"}`)
       }
     } catch (error) {
-      console.error("Registration error:", error)
-      setError("Network error occurred")
+      setMessage("Error: Failed to create user")
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
   return (
-    <AdminRoute>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="/">AI Skribenten</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Add User</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-            </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="mx-auto w-full max-w-md">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Add New User</CardTitle>
-                  <CardDescription>Create a new user account</CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSubmit}>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Name</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="Full Name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="username">Username</Label>
-                      <Input
-                        id="username"
-                        name="username"
-                        placeholder="Username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        name="password"
-                        type="password"
-                        placeholder="Password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                    {error && <p className="text-sm font-medium text-red-500">{error}</p>}
-                    {success && <p className="text-sm font-medium text-green-500">{success}</p>}
+    <ProtectedRoute>
+      <AdminRoute>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <div className="flex flex-1 flex-col gap-4 p-4">
+              <div className="mx-auto w-full max-w-md">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Add New User</CardTitle>
+                    <CardDescription>Create a new user account for the platform</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="username">Username</Label>
+                        <Input
+                          id="username"
+                          type="text"
+                          value={formData.username}
+                          onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={formData.password}
+                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input
+                          id="name"
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="role">Role</Label>
+                        <Select
+                          value={formData.role}
+                          onValueChange={(value) => setFormData({ ...formData, role: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {message && (
+                        <div className={`text-sm ${message.includes("Error") ? "text-red-500" : "text-green-500"}`}>
+                          {message}
+                        </div>
+                      )}
+                      <Button type="submit" className="w-full" disabled={loading}>
+                        {loading ? "Creating..." : "Create User"}
+                      </Button>
+                    </form>
                   </CardContent>
-                  <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? "Creating User..." : "Create User"}
-                    </Button>
-                  </CardFooter>
-                </form>
-              </Card>
+                </Card>
+              </div>
             </div>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    </AdminRoute>
+          </SidebarInset>
+        </SidebarProvider>
+      </AdminRoute>
+    </ProtectedRoute>
   )
 }

@@ -14,30 +14,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Loader2, Copy, Info } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Loader2, Copy, Info } from "lucide-react"
 import { API_HOST } from "@/app/env"
 import { useAuth } from "@/app/context/auth-context"
 
-type Article = {
+interface Article {
   id: number
   title: string
   teaser: string
-  content: string
-  img: string
   url: string
-  site_id: number
-  user_id: number
-  category_id: number
-  scheduled_publish_at: string | null
   status: string
-  response: string
-  prompt_instruction: string
-  instructions: string
   created_at: string
 }
 
-type Prompt = {
+interface Prompt {
   id: number
   name: string
   description: string
@@ -45,25 +35,25 @@ type Prompt = {
   created_at: string
 }
 
-type Site = {
+interface Site {
   id: number
   name: string
   description: string
   page_url: string
 }
 
-type User = {
+interface User {
   id: number
   name: string
   username: string
   role: string
 }
 
-type EditArticleDialogProps = {
+interface EditArticleDialogProps {
   article: Article | null
   isOpen: boolean
   onClose: () => void
-  onSave: () => void
+  onSave: (updatedArticle: Article) => void
 }
 
 export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArticleDialogProps) {
@@ -314,7 +304,13 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
       })
 
       if (response.ok) {
-        onSave()
+        if (article) {
+          const updatedArticle = {
+            ...article,
+            ...formData,
+          }
+          onSave(updatedArticle)
+        }
         onClose()
       } else {
         const errorData = await response.json().catch(() => ({ error: "Failed to update article" }))
@@ -355,10 +351,10 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Rediger Artikel</DialogTitle>
-          <DialogDescription>Rediger artikel information og gem ændringerne.</DialogDescription>
+          <DialogTitle>Edit Article</DialogTitle>
+          <DialogDescription>Make changes to the article details here. Click save when you're done.</DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
@@ -368,39 +364,49 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
           </div>
         ) : (
           <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Titel</Label>
-                <Input id="title" value={formData.title} onChange={(e) => handleInputChange("title", e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="url">URL (ikke redigerbar)</Label>
-                <Input id="url" value={formData.url} disabled className="bg-muted" />
-              </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="title" className="text-right">
+                Title
+              </Label>
+              <Input
+                id="title"
+                value={formData.title}
+                onChange={(e) => handleInputChange("title", e.target.value)}
+                className="col-span-3"
+              />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="teaser">Teaser</Label>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="url" className="text-right">
+                URL (ikke redigerbar)
+              </Label>
+              <Input id="url" value={formData.url} disabled className="bg-muted col-span-3" />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="teaser" className="text-right">
+                Teaser
+              </Label>
               <Textarea
                 id="teaser"
                 value={formData.teaser}
                 onChange={(e) => handleInputChange("teaser", e.target.value)}
+                className="col-span-3"
                 rows={2}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="content">Indhold</Label>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="content" className="text-right">
+                Indhold
+              </Label>
               <Textarea
                 id="content"
                 value={formData.content}
                 onChange={(e) => handleInputChange("content", e.target.value)}
+                className="col-span-3"
                 rows={6}
               />
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <div className="flex items-center gap-2 col-span-3">
                 <Label htmlFor="instructions">Site Instruktioner</Label>
                 <Info className="h-4 w-4 text-blue-500" />
                 {isLoadingSiteInfo && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
@@ -409,19 +415,18 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 id="instructions"
                 value={formData.instructions || "Ingen instruktioner tilgængelige"}
                 onChange={(e) => handleInputChange("instructions", e.target.value)}
-                className="bg-blue-50 border-blue-200"
+                className="bg-blue-50 border-blue-200 col-span-3"
                 rows={3}
                 placeholder="Site instruktioner"
               />
               {siteInfo && (
-                <p className="text-xs text-blue-600">
+                <p className="text-xs text-blue-600 col-span-3">
                   Site: {siteInfo.name} ({siteInfo.page_url}) - Disse instruktioner bruges automatisk i AI prompts.
                 </p>
               )}
             </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <div className="flex items-center justify-between col-span-3">
                 <Label htmlFor="prompt">Prompt Instruktion</Label>
                 <div className="flex items-center gap-2">
                   <Label htmlFor="prompt-select" className="text-sm text-muted-foreground">
@@ -448,59 +453,42 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 id="prompt"
                 value={formData.prompt_instruction}
                 onChange={(e) => handleInputChange("prompt_instruction", e.target.value)}
+                className="col-span-3"
                 rows={3}
                 placeholder="Skriv din prompt instruktion her, eller vælg en eksisterende prompt ovenfor"
               />
               {selectedPromptId && (
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-muted-foreground col-span-3">
                   Prompt kopieret fra: {prompts.find((p) => p.id.toString() === selectedPromptId)?.name}
                 </div>
               )}
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="scheduled">Planlagt Udgivelse</Label>
-                <Input
-                  id="scheduled"
-                  type="datetime-local"
-                  value={formData.scheduled_publish_at}
-                  onChange={(e) => handleInputChange("scheduled_publish_at", e.target.value)}
-                />
-              </div>
-
-              {/* Bruger visning (read-only) */}
-              <div className="space-y-2">
-                <Label htmlFor="user">Tildelt Bruger</Label>
-                <div className="flex items-center gap-2 p-2 border rounded-md bg-muted">
-                  {userInfo ? (
-                    <div className="flex flex-col">
-                      <span className="font-medium">{userInfo.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        @{userInfo.username} ({userInfo.role})
-                      </span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Bruger {formData.user_id}</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Artiklen er tildelt til brugeren der startede valideringsprocessen
-                </p>
-              </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="scheduled" className="text-right">
+                Planlagt Udgivelse
+              </Label>
+              <Input
+                id="scheduled"
+                type="datetime-local"
+                value={formData.scheduled_publish_at}
+                onChange={(e) => handleInputChange("scheduled_publish_at", e.target.value)}
+                className="col-span-3"
+              />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="image">Billede URL</Label>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="image" className="text-right">
+                Billede URL
+              </Label>
               <Input
                 id="image"
                 type="text"
                 placeholder="Indtast billede URL"
                 value={formData.img}
                 onChange={(e) => handleInputChange("img", e.target.value)}
+                className="col-span-3"
               />
               {formData.img && (
-                <div className="mt-2">
+                <div className="mt-2 col-span-3">
                   <img
                     src={formData.img || "/placeholder.svg"}
                     alt="Preview"
@@ -513,13 +501,26 @@ export function EditArticleDialog({ article, isOpen, onClose, onSave }: EditArti
                 </div>
               )}
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="user" className="text-right">
+                Tildelt Bruger
+              </Label>
+              <div className="flex items-center gap-2 p-2 border rounded-md bg-muted col-span-3">
+                {userInfo ? (
+                  <div className="flex flex-col">
+                    <span className="font-medium">{userInfo.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      @{userInfo.username} ({userInfo.role})
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">Bruger {formData.user_id}</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground col-span-3">
+                Artiklen er tildelt til brugeren der startede valideringsprocessen
+              </p>
+            </div>
           </div>
         )}
 

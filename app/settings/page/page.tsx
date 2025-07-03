@@ -1,30 +1,19 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
-import ProtectedRoute from "../../components/protected-route"
+import ProtectedRoute from "@/app/components/protected-route"
 import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { useAuth } from "../../context/auth-context"
-import { API_HOST } from "../../env"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { AlertCircle, Globe, Loader2, Save, Info, ChevronDown } from "lucide-react"
+import { AlertCircle, Loader2, Save, Info, ChevronDown } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+
+const API_HOST = "https://your-api-host.com" // Declare API_HOST here
 
 type Site = {
   id: number
@@ -41,8 +30,7 @@ type UserSite = {
   page_url: string
 }
 
-export default function PageSettingsPage() {
-  const { user } = useAuth()
+export default function SettingsPage() {
   const [userSites, setUserSites] = useState<UserSite[]>([])
   const [selectedSiteId, setSelectedSiteId] = useState<string>("")
   const [selectedSite, setSelectedSite] = useState<Site | null>(null)
@@ -62,14 +50,12 @@ export default function PageSettingsPage() {
 
   // Fetch user sites
   const fetchUserSites = async () => {
-    if (!user?.id) return
-
     setIsLoadingSites(true)
     setError("")
 
     try {
-      console.log("Fetching user sites for user ID:", user.id)
-      const response = await fetch(`${API_HOST}/users/sites/${user.id}`, {
+      console.log("Fetching user sites")
+      const response = await fetch(`${API_HOST}/users/sites`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -91,16 +77,16 @@ export default function PageSettingsPage() {
           console.log("Formatted user sites:", formattedSites)
           setUserSites(formattedSites)
         } else {
-          setError("Ingen sites fundet for denne bruger")
+          setError("Ingen sites fundet")
         }
       } else {
         const errorText = await response.text()
         console.error("API error response:", errorText)
-        setError(`Kunne ikke hente bruger sites: ${response.status}`)
+        setError(`Kunne ikke hente sites: ${response.status}`)
       }
     } catch (error) {
       console.error("Error fetching user sites:", error)
-      setError("Fejl ved hentning af bruger sites")
+      setError("Fejl ved hentning af sites")
     } finally {
       setIsLoadingSites(false)
     }
@@ -187,10 +173,8 @@ export default function PageSettingsPage() {
 
   // Initial load of user sites
   useEffect(() => {
-    if (user?.id) {
-      fetchUserSites()
-    }
-  }, [user?.id])
+    fetchUserSites()
+  }, [])
 
   // Handle input changes
   const handleInputChange = (field: string, value: string) => {
@@ -324,203 +308,179 @@ export default function PageSettingsPage() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="/">AI Skribenten</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbLink href="/settings">Settings</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Page Settings {selectedSite && `- ${selectedSite.name}`}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+          <div className="flex flex-1 flex-col gap-4 p-4">
+            <div>
+              <h1 className="text-3xl font-bold">Settings</h1>
+              <p className="text-muted-foreground">Manage your account settings and preferences</p>
             </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <div className="mx-auto w-full max-w-2xl">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-5 w-5" />
-                    Page Settings
-                  </CardTitle>
-                  <CardDescription>Vælg et site og administrer dets indstillinger</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  {/* Site Selection */}
-                  <div className="space-y-2">
-                    <Label htmlFor="site-select">Vælg Site</Label>
-                    {isLoadingSites ? (
-                      <div className="flex items-center gap-2 p-2 border rounded-md">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        <span className="text-muted-foreground">Indlæser sites...</span>
-                      </div>
-                    ) : userSites.length === 0 ? (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Ingen sites fundet for denne bruger. Kontakt din administrator for at få adgang til sites.
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <Select value={selectedSiteId} onValueChange={handleSiteSelect}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Vælg et site at administrere">
-                            {selectedSiteId && userSites.find((site) => site.id.toString() === selectedSiteId)
-                              ? `${userSites.find((site) => site.id.toString() === selectedSiteId)?.name} (${
-                                  userSites.find((site) => site.id.toString() === selectedSiteId)?.page_url
-                                })`
-                              : "Vælg et site at administrere"}
-                          </SelectValue>
-                          <ChevronDown className="h-4 w-4 opacity-50" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {userSites.map((site) => (
-                            <SelectItem key={site.id} value={site.id.toString()}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{site.name}</span>
-                                <span className="text-xs text-muted-foreground">{site.page_url}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+            <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+              <div className="aspect-video rounded-xl bg-muted/50">
+                {isLoadingSites ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-muted-foreground">Indlæser sites...</span>
                   </div>
-
-                  {/* Site Settings Form - Only show when site is selected */}
-                  {selectedSiteId && (
-                    <>
-                      {isLoadingSiteData ? (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                          <span className="ml-2 text-muted-foreground">Indlæser site indstillinger...</span>
+                ) : userSites.length === 0 ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Ingen sites fundet. Kontakt din administrator for at få adgang til sites.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Select value={selectedSiteId} onValueChange={handleSiteSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Vælg et site at administrere">
+                        {selectedSiteId && userSites.find((site) => site.id.toString() === selectedSiteId)
+                          ? `${userSites.find((site) => site.id.toString() === selectedSiteId)?.name} (${
+                              userSites.find((site) => site.id.toString() === selectedSiteId)?.page_url
+                            })`
+                          : "Vælg et site at administrere"}
+                      </SelectValue>
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userSites.map((site) => (
+                        <SelectItem key={site.id} value={site.id.toString()}>
+                          <div className="flex flex-col">
+                            <span className="font-medium">{site.name}</span>
+                            <span className="text-xs text-muted-foreground">{site.page_url}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <div className="aspect-video rounded-xl bg-muted/50">
+                {selectedSiteId && (
+                  <>
+                    {isLoadingSiteData ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <span className="ml-2 text-muted-foreground">Indlæser site indstillinger...</span>
+                      </div>
+                    ) : selectedSite ? (
+                      <form onSubmit={handleSubmit} className="space-y-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="name">Site Navn</Label>
+                          <Input
+                            id="name"
+                            value={formData.name}
+                            onChange={(e) => handleInputChange("name", e.target.value)}
+                            placeholder="Indtast site navn"
+                            required
+                          />
                         </div>
-                      ) : selectedSite ? (
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="name">Site Navn</Label>
-                            <Input
-                              id="name"
-                              value={formData.name}
-                              onChange={(e) => handleInputChange("name", e.target.value)}
-                              placeholder="Indtast site navn"
-                              required
-                            />
-                          </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="page_url">Domain</Label>
-                            <Input
-                              id="page_url"
-                              value={formData.page_url}
-                              onChange={(e) => handleInputChange("page_url", e.target.value)}
-                              placeholder="example.com"
-                              required
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Indtast domain uden protokol (f.eks. example.com, site.dk)
-                            </p>
-                          </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="page_url">Domain</Label>
+                          <Input
+                            id="page_url"
+                            value={formData.page_url}
+                            onChange={(e) => handleInputChange("page_url", e.target.value)}
+                            placeholder="example.com"
+                            required
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Indtast domain uden protokol (f.eks. example.com, site.dk)
+                          </p>
+                        </div>
 
-                          <div className="space-y-2">
-                            <Label htmlFor="logo">Logo</Label>
-                            <Input
-                              id="logo"
-                              type="file"
-                              accept="image/*"
-                              onChange={handleFileChange}
-                              ref={setFileInputRef}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Upload et nyt logo billede (valgfrit - lad være tom for at beholde nuværende logo)
-                            </p>
-                            {formData.logo && !logoFile && (
-                              <div className="mt-2">
-                                <p className="text-sm text-muted-foreground mb-2">Nuværende logo:</p>
-                                {getLogoSrc(formData.logo) ? (
-                                  <img
-                                    src={getLogoSrc(formData.logo)! || "/placeholder.svg"}
-                                    alt="Current logo"
-                                    className="max-w-xs max-h-32 object-contain rounded border"
-                                    onError={(e) => {
-                                      console.error("Failed to load logo image")
-                                      e.currentTarget.style.display = "none"
-                                    }}
-                                  />
-                                ) : (
-                                  <p className="text-sm text-muted-foreground">Logo data kunne ikke vises</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Label htmlFor="description">Beskrivelse</Label>
-                              <Info className="h-4 w-4 text-blue-500" />
-                            </div>
-                            <Textarea
-                              id="description"
-                              value={formData.description}
-                              onChange={(e) => handleInputChange("description", e.target.value)}
-                              placeholder="Indtast site beskrivelse"
-                              rows={4}
-                              required
-                            />
-                            <Alert className="bg-amber-50 border-amber-200">
-                              <AlertCircle className="h-4 w-4 text-amber-600" />
-                              <AlertDescription className="text-amber-800">
-                                Beskrivelsen er vigtig da den indgår i AI prompten til siden og bruges til at generere
-                                artikler.
-                              </AlertDescription>
-                            </Alert>
-                          </div>
-
-                          {error && (
-                            <Alert variant="destructive">
-                              <AlertCircle className="h-4 w-4" />
-                              <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                          )}
-
-                          {success && (
-                            <Alert className="bg-green-50 border-green-200">
-                              <AlertCircle className="h-4 w-4 text-green-600" />
-                              <AlertDescription className="text-green-800">{success}</AlertDescription>
-                            </Alert>
-                          )}
-
-                          <div className="flex justify-end">
-                            <Button type="submit" disabled={isSaving} className="flex items-center gap-2">
-                              {isSaving ? (
-                                <>
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                  Gemmer...
-                                </>
+                        <div className="space-y-2">
+                          <Label htmlFor="logo">Logo</Label>
+                          <Input
+                            id="logo"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            ref={setFileInputRef}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Upload et nyt logo billede (valgfrit - lad være tom for at beholde nuværende logo)
+                          </p>
+                          {formData.logo && !logoFile && (
+                            <div className="mt-2">
+                              <p className="text-sm text-muted-foreground mb-2">Nuværende logo:</p>
+                              {getLogoSrc(formData.logo) ? (
+                                <img
+                                  src={getLogoSrc(formData.logo)! || "/placeholder.svg"}
+                                  alt="Current logo"
+                                  className="max-w-xs max-h-32 object-contain rounded border"
+                                  onError={(e) => {
+                                    console.error("Failed to load logo image")
+                                    e.currentTarget.style.display = "none"
+                                  }}
+                                />
                               ) : (
-                                <>
-                                  <Save className="h-4 w-4" />
-                                  Gem Ændringer
-                                </>
+                                <p className="text-sm text-muted-foreground">Logo data kunne ikke vises</p>
                               )}
-                            </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="description">Beskrivelse</Label>
+                            <Info className="h-4 w-4 text-blue-500" />
                           </div>
-                        </form>
-                      ) : null}
-                    </>
-                  )}
-                </CardContent>
-              </Card>
+                          <Textarea
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) => handleInputChange("description", e.target.value)}
+                            placeholder="Indtast site beskrivelse"
+                            rows={4}
+                            required
+                          />
+                          <Alert className="bg-amber-50 border-amber-200">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <AlertDescription className="text-amber-800">
+                              Beskrivelsen er vigtig da den indgår i AI prompten til siden og bruges til at generere
+                              artikler.
+                            </AlertDescription>
+                          </Alert>
+                        </div>
+
+                        {error && (
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                          </Alert>
+                        )}
+
+                        {success && (
+                          <Alert className="bg-green-50 border-green-200">
+                            <AlertCircle className="h-4 w-4 text-green-600" />
+                            <AlertDescription className="text-green-800">{success}</AlertDescription>
+                          </Alert>
+                        )}
+
+                        <div className="flex justify-end">
+                          <Button type="submit" disabled={isSaving} className="flex items-center gap-2">
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Gemmer...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4" />
+                                Gem Ændringer
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    ) : null}
+                  </>
+                )}
+              </div>
+              <div className="aspect-video rounded-xl bg-muted/50">
+                {/* Additional settings or information can be placed here */}
+              </div>
+            </div>
+            <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min">
+              {/* Additional settings or information can be placed here */}
             </div>
           </div>
         </SidebarInset>

@@ -1,477 +1,172 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import ProtectedRoute from "../components/protected-route"
-import { AppSidebar } from "@/components/app-sidebar"
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Separator } from "@/components/ui/separator"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { useAuth } from "../context/auth-context"
-import { API_HOST } from "../env"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import {
-  AlertCircle,
-  Calendar,
-  Loader2,
-  CheckCircle,
-  ExternalLink,
-  Edit,
-  Trash2,
-  Clock,
-  AlertTriangle,
-} from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Trash2, Edit, CheckCircle } from "lucide-react"
 import { EditArticleDialog } from "@/components/edit-article-dialog"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import ProtectedRoute from "@/app/components/protected-route"
+import { API_HOST } from "@/app/env"
+import { useAuth } from "@/app/context/auth-context"
 
-type Article = {
+interface Article {
   id: number
-  site_id: number
   title: string
   teaser: string
-  content: string
-  img: string
-  status: string
-  response: string
-  scheduled_publish_at: string | null
-  published_at: string | null
   url: string
-  prompt_instruction: string
-  instructions: string
-  user_id: number
+  status: string
   created_at: string
-  updated_at: string
-}
-
-type User = {
-  id: number
-  name: string
-  username: string
-  role: string
-}
-
-type Site = {
-  id: number
-  name: string
-  page_url: string
-  description: string
 }
 
 export default function ArtiklerPage() {
   const { user } = useAuth()
   const [url, setUrl] = useState("")
-  const [isValidating, setIsValidating] = useState(false)
-  const [validationError, setValidationError] = useState("")
-  const [validationSuccess, setValidationSuccess] = useState("")
-  const [scheduledArticles, setScheduledArticles] = useState<Article[]>([])
-  const [unvalidatedArticles, setUnvalidatedArticles] = useState<Article[]>([])
-  const [isLoadingScheduled, setIsLoadingScheduled] = useState(true)
-  const [isLoadingUnvalidated, setIsLoadingUnvalidated] = useState(true)
-  const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
-  const [activeSite, setActiveSite] = useState<Site | null>(null)
+  const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
+  const [loading, setLoading] = useState(false)
+  const [message, setMessage] = useState("")
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loadingArticles, setLoadingArticles] = useState(true)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [allUsers, setAllUsers] = useState<User[]>([])
-  const [isPublishing, setIsPublishing] = useState<number | null>(null)
-  const [validationType, setValidationType] = useState<"article" | "sitemap">("article")
 
-  // Handle URL validation
-  const handleValidateUrl = async () => {
-    setValidationError("")
-    setValidationSuccess("")
-
-    if (!activeSiteId || !user?.id) {
-      setValidationError("Mangler site eller bruger information")
-      return
-    }
-
-    setIsValidating(true)
-
-    try {
-      console.log("Sending URL validation with:", { url, site_id: activeSiteId, user_id: user.id })
-
-      const response = await fetch(`${API_HOST}/articles/validate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url: url,
-          site_id: activeSiteId,
-          user_id: user.id,
-          type: validationType,
-        }),
-      })
-
-      if (response.ok) {
-        setValidationSuccess("URL validated successfully!")
-        setUrl("") // Clear the input
-        console.log("URL validation successful for:", url)
-
-        // Refresh articles after validation
-        if (activeSiteId) {
-          fetchArticles(activeSiteId)
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({ error: "Failed to validate URL" }))
-        console.error("Validation error response:", errorData)
-        setValidationError(errorData.error || "Failed to validate URL")
-      }
-    } catch (error) {
-      console.error("Error validating URL:", error)
-      setValidationError("An error occurred while validating the URL")
-    } finally {
-      setIsValidating(false)
-    }
-  }
-
-  // Fetch articles for a specific site
-  const fetchArticles = async (siteId: number) => {
-    setIsLoadingScheduled(true)
-    setIsLoadingUnvalidated(true)
-
-    try {
-      // Fetch scheduled articles
-      const scheduledResponse = await fetch(`${API_HOST}/articles/scheduled_articles/${siteId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (scheduledResponse.ok) {
-        const scheduledData = await scheduledResponse.json()
-        if (Array.isArray(scheduledData)) {
-          const formattedScheduledArticles: Article[] = scheduledData.map((articleArray: any[]) => ({
-            id: articleArray[0],
-            site_id: articleArray[1],
-            title: articleArray[2],
-            teaser: articleArray[3],
-            content: articleArray[4],
-            img: articleArray[5],
-            status: articleArray[6],
-            response: articleArray[7],
-            scheduled_publish_at: articleArray[8],
-            published_at: articleArray[9],
-            url: articleArray[10],
-            prompt_instruction: articleArray[11],
-            instructions: articleArray[12],
-            user_id: articleArray[13],
-            created_at: articleArray[14],
-            updated_at: articleArray[15],
-          }))
-          setScheduledArticles(formattedScheduledArticles)
-        }
-      }
-
-      // Fetch unvalidated articles
-      const unvalidatedResponse = await fetch(`${API_HOST}/articles/unvalidated_articles/${siteId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (unvalidatedResponse.ok) {
-        const unvalidatedData = await unvalidatedResponse.json()
-        if (Array.isArray(unvalidatedData)) {
-          const formattedUnvalidatedArticles: Article[] = unvalidatedData.map((articleArray: any[]) => ({
-            id: articleArray[0],
-            site_id: articleArray[1],
-            title: articleArray[2],
-            teaser: articleArray[3],
-            content: articleArray[4],
-            img: articleArray[5],
-            status: articleArray[6],
-            response: articleArray[7],
-            scheduled_publish_at: articleArray[8],
-            published_at: articleArray[9],
-            url: articleArray[10],
-            prompt_instruction: articleArray[11],
-            instructions: articleArray[12],
-            user_id: articleArray[13],
-            created_at: articleArray[14],
-            updated_at: articleArray[15],
-          }))
-          setUnvalidatedArticles(formattedUnvalidatedArticles)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching articles:", error)
-    } finally {
-      setIsLoadingScheduled(false)
-      setIsLoadingUnvalidated(false)
-    }
-  }
-
-  // Fetch all users
-  const fetchAllUsers = async () => {
-    if (!user?.role) {
-      console.error("User role not available")
-      return
-    }
-
-    try {
-      const response = await fetch(`${API_HOST}/admin/all_users/${user.role}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        const usersData = await response.json()
-        if (usersData.success === false) {
-          console.error("Not authorized to fetch users:", usersData.error)
-        } else if (usersData.users && Array.isArray(usersData.users)) {
-          const formattedUsers: User[] = usersData.users.map((userArray: any[]) => ({
-            id: userArray[0],
-            name: userArray[1],
-            username: userArray[2],
-            role: userArray[4],
-          }))
-          setAllUsers(formattedUsers)
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching users:", error)
-    }
-  }
-
-  // Fetch user sites and listen for site changes
+  // Fetch all articles
   useEffect(() => {
-    const fetchUserSites = async () => {
-      if (!user?.id) return
-
+    const fetchArticles = async () => {
       try {
-        const response = await fetch(`${API_HOST}/users/sites/${user.id}`, {
-          method: "GET",
+        const response = await fetch(`${API_HOST}/articles/all`, {
           headers: {
-            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
         })
 
         if (response.ok) {
           const data = await response.json()
-          if (data.sites && Array.isArray(data.sites) && data.sites.length > 0) {
-            const formattedSites: Site[] = data.sites.map((siteArray: any[]) => ({
-              id: siteArray[0],
-              name: siteArray[1],
-              description: siteArray[2],
-              page_url: siteArray[3],
-            }))
-
-            // Set first site as active by default if no active site is set
-            if (!activeSiteId && formattedSites.length > 0) {
-              const firstSite = formattedSites[0]
-              setActiveSiteId(firstSite.id)
-              setActiveSite(firstSite)
-              fetchArticles(firstSite.id)
-            }
-          } else {
-            setIsLoadingScheduled(false)
-            setIsLoadingUnvalidated(false)
-          }
+          setArticles(data.articles || [])
+        } else {
+          console.error("Failed to fetch articles")
         }
       } catch (error) {
-        console.error("Error fetching user sites:", error)
-        setIsLoadingScheduled(false)
-        setIsLoadingUnvalidated(false)
+        console.error("Error fetching articles:", error)
+      } finally {
+        setLoadingArticles(false)
       }
     }
 
-    fetchUserSites()
-    fetchAllUsers()
-  }, [user?.id])
+    fetchArticles()
+  }, [])
 
-  // Listen for site changes from localStorage
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const storedActiveSite = localStorage.getItem("activeSite")
-      if (storedActiveSite) {
-        try {
-          const siteData = JSON.parse(storedActiveSite)
-          if (siteData.id !== activeSiteId) {
-            setActiveSiteId(siteData.id)
-            setActiveSite(siteData)
-            fetchArticles(siteData.id)
-          }
-        } catch (error) {
-          console.error("Error parsing stored active site:", error)
-        }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setMessage("")
+
+    try {
+      const response = await fetch(`${API_HOST}/articles/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          url: url,
+          site_id: 1, // You might want to get this from context or props
+          user_id: user?.id,
+          type: validationType,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        setMessage(`Success: ${result.message || "URL validated successfully"}`)
+        setUrl("")
+        // Refresh the articles list
+        window.location.reload()
+      } else {
+        const error = await response.json()
+        setMessage(`Error: ${error.detail || "Failed to validate URL"}`)
       }
-    }
-
-    // Listen for storage changes
-    window.addEventListener("storage", handleStorageChange)
-    // Also listen for custom events (for same-tab changes)
-    window.addEventListener("activeSiteChanged", handleStorageChange)
-    // Check for stored active site on mount
-    handleStorageChange()
-
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-      window.removeEventListener("activeSiteChanged", handleStorageChange)
-    }
-  }, [activeSiteId])
-
-  // Format date string
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "Ikke planlagt"
-
-    const date = new Date(dateString)
-    if (isNaN(date.getTime()) || date.getFullYear() < 2000) {
-      return "Ugyldig dato"
-    }
-
-    return date.toLocaleDateString("da-DK", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
-  // Get status icon and color
-  const getStatusIcon = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case "validating":
-        return <AlertCircle className="h-4 w-4 text-red-500" />
-      case "queued":
-        return <Clock className="h-4 w-4 text-orange-500" />
-      case "scheduled":
-        return <Calendar className="h-4 w-4 text-blue-500" />
-      case "published":
-        return <CheckCircle className="h-4 w-4 text-green-500" />
-      default:
-        return <AlertTriangle className="h-4 w-4 text-gray-500" />
+    } catch (error) {
+      setMessage("Error: Failed to validate URL")
+    } finally {
+      setLoading(false)
     }
   }
 
-  // Get user name by ID
-  const getUserName = (userId: number) => {
-    const foundUser = allUsers.find((u) => u.id === userId)
-    return foundUser ? foundUser.name : `Bruger ${userId}`
+  const handleDelete = async (articleId: number) => {
+    try {
+      const response = await fetch(`${API_HOST}/articles/${articleId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      })
+
+      if (response.ok) {
+        setArticles(articles.filter((article) => article.id !== articleId))
+      } else {
+        console.error("Failed to delete article")
+      }
+    } catch (error) {
+      console.error("Error deleting article:", error)
+    }
   }
 
-  // Handle edit article
-  const handleEditArticle = (article: Article) => {
+  const handleEdit = (article: Article) => {
     setEditingArticle(article)
     setIsEditDialogOpen(true)
   }
 
-  // Handle delete article
-  const handleDeleteArticle = (article: Article) => {
-    setDeletingArticle(article)
-    setIsDeleteDialogOpen(true)
-  }
-
-  // Confirm delete
-  const confirmDelete = async () => {
-    if (!deletingArticle) return
-
-    setIsDeleting(true)
-
+  const handleSaveEdit = async (updatedArticle: Article) => {
     try {
-      const response = await fetch(`${API_HOST}/articles/delete_article/${deletingArticle.id}`, {
-        method: "DELETE",
+      const response = await fetch(`${API_HOST}/articles/${updatedArticle.id}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
+        body: JSON.stringify({
+          title: updatedArticle.title,
+          teaser: updatedArticle.teaser,
+          url: updatedArticle.url,
+        }),
       })
 
       if (response.ok) {
-        if (activeSiteId) {
-          fetchArticles(activeSiteId)
-        }
+        setArticles(articles.map((article) => (article.id === updatedArticle.id ? updatedArticle : article)))
+      } else {
+        console.error("Failed to update article")
       }
     } catch (error) {
-      console.error("Error deleting article:", error)
-    } finally {
-      setIsDeleting(false)
-      setIsDeleteDialogOpen(false)
-      setDeletingArticle(null)
+      console.error("Error updating article:", error)
     }
   }
 
-  // Handle save from edit dialog
-  const handleSaveArticle = () => {
-    if (activeSiteId) {
-      fetchArticles(activeSiteId)
-    }
-  }
-
-  // Open URL in new window
-  const openUrl = (url: string) => {
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer")
-    }
-  }
-
-  // Handle publish article
-  const handlePublishArticle = async (article: Article) => {
-    setIsPublishing(article.id)
-
+  const handleApprove = async (articleId: number) => {
     try {
-      const publishData = {
-        id: article.id, // Tilføj artikel ID
-        site_id: article.site_id,
-        title: article.title,
-        teaser: article.teaser,
-        content: article.content,
-        img: article.img,
-        prompt_instructions: article.prompt_instruction,
-        instructions: article.instructions,
-        user_id: article.user_id,
-      }
-
-      console.log("Publishing article:", publishData)
-
-      const response = await fetch(`${API_HOST}/articles/write_article`, {
+      const response = await fetch(`${API_HOST}/articles/${articleId}/approve`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify(publishData),
       })
 
       if (response.ok) {
-        console.log("Article published successfully")
-        if (activeSiteId) {
-          fetchArticles(activeSiteId)
-        }
+        // Update article status
+        setArticles(
+          articles.map((article) => (article.id === articleId ? { ...article, status: "approved" } : article)),
+        )
       } else {
-        console.error("Failed to publish article:", await response.text())
+        console.error("Failed to approve article")
       }
     } catch (error) {
-      console.error("Error publishing article:", error)
-    } finally {
-      setIsPublishing(null)
+      console.error("Error approving article:", error)
     }
   }
 
@@ -480,375 +175,125 @@ export default function ArtiklerPage() {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-            <div className="flex items-center gap-2 px-4">
-              <SidebarTrigger className="-ml-1" />
-              <Separator orientation="vertical" className="mr-2 h-4" />
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem className="hidden md:block">
-                    <BreadcrumbLink href="/">AI Skribenten</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator className="hidden md:block" />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Artikler {activeSite && `- ${activeSite.name}`}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+          <div className="flex flex-1 flex-col gap-6 p-6">
+            <div>
+              <h1 className="text-3xl font-bold">Artikler</h1>
+              <p className="text-muted-foreground">Administrer alle artikler og valider nye URLs</p>
             </div>
-          </header>
-          <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
+
             {/* URL Validation Section */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle>Valider Artikel URL</CardTitle>
-                <CardDescription>Indtast enhver URL - alle URLs accepteres og behandles af systemet</CardDescription>
+              <CardHeader>
+                <CardTitle>Valider URL</CardTitle>
+                <CardDescription>Indtast en URL for at validere og oprette en ny artikel</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label htmlFor="url" className="sr-only">
-                      URL
-                    </Label>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="url">URL</Label>
                     <Input
                       id="url"
-                      placeholder="Indtast enhver URL..."
+                      type="url"
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          handleValidateUrl()
-                        }
-                      }}
+                      placeholder="https://example.com/article"
+                      required
                     />
                   </div>
-                  <Button onClick={handleValidateUrl} disabled={isValidating || !activeSiteId || !user?.id}>
-                    {isValidating ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Validerer...
-                      </>
-                    ) : (
-                      "Valider"
-                    )}
+
+                  <div className="space-y-2">
+                    <Label>Type:</Label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={validationType === "article"}
+                          onChange={() => setValidationType("article")}
+                          className="rounded"
+                        />
+                        <span>Article</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          checked={validationType === "sitemap"}
+                          onChange={() => setValidationType("sitemap")}
+                          className="rounded"
+                        />
+                        <span>Sitemap</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {message && (
+                    <div className={`text-sm ${message.includes("Error") ? "text-red-500" : "text-green-500"}`}>
+                      {message}
+                    </div>
+                  )}
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Validerer..." : "Valider URL"}
                   </Button>
-                </div>
-
-                {/* Type Selection */}
-                <div className="flex items-center gap-6 pt-2">
-                  <Label className="text-sm font-medium">Type:</Label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="article-type"
-                      checked={validationType === "article"}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setValidationType("article")
-                        }
-                      }}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <Label htmlFor="article-type" className="text-sm">
-                      Article
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="sitemap-type"
-                      checked={validationType === "sitemap"}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setValidationType("sitemap")
-                        }
-                      }}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <Label htmlFor="sitemap-type" className="text-sm">
-                      Sitemap
-                    </Label>
-                  </div>
-                </div>
-
-                {validationError && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{validationError}</AlertDescription>
-                  </Alert>
-                )}
-                {validationSuccess && (
-                  <Alert className="bg-green-50 border-green-200">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <AlertDescription className="text-green-800">{validationSuccess}</AlertDescription>
-                  </Alert>
-                )}
+                </form>
               </CardContent>
             </Card>
 
-            {/* Scheduled Articles Section */}
+            {/* Articles List */}
             <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Planlagte Artikler
-                    </CardTitle>
-                    <CardDescription>
-                      Oversigt over alle planlagte artikler for {activeSite?.name || "dit site"}
-                    </CardDescription>
-                  </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">
-                    {scheduledArticles.length} artikler
-                  </Badge>
-                </div>
+              <CardHeader>
+                <CardTitle>Alle Artikler</CardTitle>
+                <CardDescription>Oversigt over alle artikler i systemet</CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoadingScheduled ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Indlæser planlagte artikler...</span>
-                  </div>
-                ) : scheduledArticles.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">
-                      Ingen planlagte artikler fundet for {activeSite?.name || "dette site"}
-                    </p>
-                  </div>
+                {loadingArticles ? (
+                  <div>Loading articles...</div>
+                ) : articles.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">Ingen artikler fundet</div>
                 ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[60px]">Status</TableHead>
-                          <TableHead className="w-[300px]">Titel</TableHead>
-                          <TableHead className="w-[100px]">Bruger</TableHead>
-                          <TableHead className="w-[120px]">Oprettet</TableHead>
-                          <TableHead className="w-[150px]">Planlagt</TableHead>
-                          <TableHead className="w-[150px]">Handlinger</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {scheduledArticles.map((article) => (
-                          <TableRow key={article.id}>
-                            <TableCell>{getStatusIcon(article.status)}</TableCell>
-                            <TableCell className="font-medium">
-                              <div className="max-w-[280px] truncate" title={article.title}>
-                                {article.title}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{getUserName(article.user_id)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{formatDate(article.scheduled_publish_at)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteArticle(article)}
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  title="Slet artikel"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditArticle(article)}
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                  title="Rediger artikel"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                {article.url && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openUrl(article.url)}
-                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                                    title="Åbn artikel URL"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handlePublishArticle(article)}
-                                  disabled={isPublishing === article.id}
-                                  className="ml-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4"
-                                  title="Udgiv artikel"
-                                >
-                                  {isPublishing === article.id ? (
-                                    <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Udgiver...
-                                    </>
-                                  ) : (
-                                    "Publish"
-                                  )}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <div className="space-y-4">
+                    {articles.map((article) => (
+                      <div key={article.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex-1">
+                          <h3 className="font-semibold">{article.title}</h3>
+                          <p className="text-sm text-muted-foreground">{article.teaser}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary">{article.status}</Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(article.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(article)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {article.status === "pending" && (
+                            <Button variant="outline" size="sm" onClick={() => handleApprove(article.id)}>
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => handleDelete(article.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Unvalidated Articles Section */}
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
-                      Afventende Artikler
-                    </CardTitle>
-                    <CardDescription>Oversigt over alle afventende artikler for dit site</CardDescription>
-                  </div>
-                  <Badge variant="secondary" className="text-lg px-3 py-1">
-                    {unvalidatedArticles.length} artikler
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingUnvalidated ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">Indlæser afventende artikler...</span>
-                  </div>
-                ) : unvalidatedArticles.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <Clock className="h-12 w-12 text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">Ingen afventende artikler fundet</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[60px]">Status</TableHead>
-                          <TableHead className="w-[300px]">Titel</TableHead>
-                          <TableHead className="w-[100px]">Bruger</TableHead>
-                          <TableHead className="w-[120px]">Oprettet</TableHead>
-                          <TableHead className="w-[150px]">Planlagt</TableHead>
-                          <TableHead className="w-[150px]">Handlinger</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {unvalidatedArticles.map((article) => (
-                          <TableRow key={article.id}>
-                            <TableCell>{getStatusIcon(article.status)}</TableCell>
-                            <TableCell className="font-medium">
-                              <div className="max-w-[280px] truncate" title={article.title}>
-                                {article.title}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{getUserName(article.user_id)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-muted-foreground">
-                                {article.scheduled_publish_at
-                                  ? formatDate(article.scheduled_publish_at)
-                                  : "Ikke planlagt"}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteArticle(article)}
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  title="Slet artikel"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditArticle(article)}
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                  title="Rediger artikel"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                {article.url && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openUrl(article.url)}
-                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                                    title="Åbn artikel URL"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <EditArticleDialog
+              article={editingArticle}
+              isOpen={isEditDialogOpen}
+              onClose={() => {
+                setIsEditDialogOpen(false)
+                setEditingArticle(null)
+              }}
+              onSave={handleSaveEdit}
+            />
           </div>
         </SidebarInset>
       </SidebarProvider>
-
-      {/* Edit Article Dialog */}
-      <EditArticleDialog
-        article={editingArticle}
-        isOpen={isEditDialogOpen}
-        onClose={() => {
-          setIsEditDialogOpen(false)
-          setEditingArticle(null)
-        }}
-        onSave={handleSaveArticle}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Slet Artikel</AlertDialogTitle>
-            <AlertDialogDescription>
-              Er du sikker på at du vil slette artiklen "{deletingArticle?.title}"? Denne handling kan ikke fortrydes.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Annuller</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
-              {isDeleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sletter...
-                </>
-              ) : (
-                "Slet"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </ProtectedRoute>
   )
 }

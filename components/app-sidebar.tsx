@@ -40,7 +40,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       }
 
       try {
-        // Fetch user sites using path parameter - BRUGER STADIG API_HOST
+        // Fetch user sites using path parameter
         const userSitesResponse = await fetch(`${API_HOST}/users/sites/${user.id}`, {
           method: "GET",
           headers: {
@@ -90,7 +90,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     try {
       console.log("Starting Shutterstock auth...")
 
-      // KUN DENNE URL ER ÆNDRET - resten bruger stadig API_HOST
       const response = await fetch(`https://dcd7-86-52-42-195.ngrok-free.app/auth/start-auth`, {
         method: "GET",
         headers: {

@@ -17,19 +17,8 @@ import { useAuth } from "../../context/auth-context"
 import { API_HOST } from "../../env"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  Calendar,
-  Loader2,
-  ExternalLink,
-  Edit,
-  Trash2,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-} from "lucide-react"
+import { Calendar, Loader2, Edit, Trash2, AlertCircle, CheckCircle, Clock, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EditArticleDialog } from "@/components/edit-article-dialog"
 import {
   AlertDialog,
@@ -42,33 +31,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
-type Article = {
+interface Article {
   id: number
-  site_id: number
   title: string
   teaser: string
-  content: string
-  img: string
-  status: string
-  response: string
-  scheduled_publish_at: string | null
-  published_at: string | null
   url: string
-  prompt_instruction: string
-  instructions: string
-  user_id: number
+  status: string
   created_at: string
-  updated_at: string
 }
 
-type User = {
+interface User {
   id: number
   name: string
   username: string
   role: string
 }
 
-type Site = {
+interface Site {
   id: number
   name: string
   page_url: string
@@ -77,59 +56,89 @@ type Site = {
 
 export default function PlanlagteArtiklerPage() {
   const { user } = useAuth()
-  const [scheduledArticles, setScheduledArticles] = useState<Article[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
-  const [activeSite, setActiveSite] = useState<Site | null>(null)
-  const [userSites, setUserSites] = useState<Site[]>([])
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loading, setLoading] = useState(true)
   const [editingArticle, setEditingArticle] = useState<Article | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [deletingArticle, setDeletingArticle] = useState<Article | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [allUsers, setAllUsers] = useState<User[]>([])
-  const [isPublishing, setIsPublishing] = useState<number | null>(null)
+  const [userSites, setUserSites] = useState<Site[]>([])
+  const [activeSiteId, setActiveSiteId] = useState<number | null>(null)
+  const [activeSite, setActiveSite] = useState<Site | null>(null)
 
-  // Fetch scheduled articles for a specific site
-  const fetchScheduledArticles = async (siteId: number) => {
-    setIsLoading(true)
+  useEffect(() => {
+    const fetchScheduledArticles = async () => {
+      try {
+        const response = await fetch(`${API_HOST}/articles/scheduled`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        })
 
+        if (response.ok) {
+          const data = await response.json()
+          setArticles(data.articles || [])
+        } else {
+          console.error("Failed to fetch scheduled articles")
+        }
+      } catch (error) {
+        console.error("Error fetching scheduled articles:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchScheduledArticles()
+  }, [])
+
+  const handleDelete = async (articleId: number) => {
     try {
-      const response = await fetch(`${API_HOST}/articles/scheduled_articles/${siteId}`, {
-        method: "GET",
+      const response = await fetch(`${API_HOST}/articles/${articleId}`, {
+        method: "DELETE",
         headers: {
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
       })
 
       if (response.ok) {
-        const data = await response.json()
-        if (Array.isArray(data)) {
-          const formattedArticles: Article[] = data.map((articleArray: any[]) => ({
-            id: articleArray[0],
-            site_id: articleArray[1],
-            title: articleArray[2],
-            teaser: articleArray[3],
-            content: articleArray[4],
-            img: articleArray[5],
-            status: articleArray[6],
-            response: articleArray[7],
-            scheduled_publish_at: articleArray[8],
-            published_at: articleArray[9],
-            url: articleArray[10],
-            prompt_instruction: articleArray[11],
-            instructions: articleArray[12],
-            user_id: articleArray[13],
-            created_at: articleArray[14],
-            updated_at: articleArray[15],
-          }))
-          setScheduledArticles(formattedArticles)
-        }
+        setArticles(articles.filter((article) => article.id !== articleId))
+      } else {
+        console.error("Failed to delete article")
       }
     } catch (error) {
-      console.error("Error fetching scheduled articles:", error)
-    } finally {
-      setIsLoading(false)
+      console.error("Error deleting article:", error)
+    }
+  }
+
+  const handleEdit = (article: Article) => {
+    setEditingArticle(article)
+    setIsEditDialogOpen(true)
+  }
+
+  const handleSaveEdit = async (updatedArticle: Article) => {
+    try {
+      const response = await fetch(`${API_HOST}/articles/${updatedArticle.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          title: updatedArticle.title,
+          teaser: updatedArticle.teaser,
+          url: updatedArticle.url,
+        }),
+      })
+
+      if (response.ok) {
+        setArticles(articles.map((article) => (article.id === updatedArticle.id ? updatedArticle : article)))
+      } else {
+        console.error("Failed to update article")
+      }
+    } catch (error) {
+      console.error("Error updating article:", error)
     }
   }
 
@@ -196,15 +205,11 @@ export default function PlanlagteArtiklerPage() {
             const firstSite = formattedSites[0]
             setActiveSiteId(firstSite.id)
             setActiveSite(firstSite)
-            fetchScheduledArticles(firstSite.id)
           }
-        } else {
-          setIsLoading(false)
         }
       }
     } catch (error) {
       console.error("Error fetching user sites:", error)
-      setIsLoading(false)
     }
   }
 
@@ -218,7 +223,6 @@ export default function PlanlagteArtiklerPage() {
           if (siteData.id !== activeSiteId) {
             setActiveSiteId(siteData.id)
             setActiveSite(siteData)
-            fetchScheduledArticles(siteData.id)
           }
         } catch (error) {
           console.error("Error parsing stored active site:", error)
@@ -289,102 +293,6 @@ export default function PlanlagteArtiklerPage() {
     return foundUser ? foundUser.name : `Bruger ${userId}`
   }
 
-  // Handle edit article
-  const handleEditArticle = (article: Article) => {
-    setEditingArticle(article)
-    setIsEditDialogOpen(true)
-  }
-
-  // Handle delete article
-  const handleDeleteArticle = (article: Article) => {
-    setDeletingArticle(article)
-    setIsDeleteDialogOpen(true)
-  }
-
-  // Confirm delete
-  const confirmDelete = async () => {
-    if (!deletingArticle) return
-
-    setIsDeleting(true)
-
-    try {
-      const response = await fetch(`${API_HOST}/articles/delete_article/${deletingArticle.id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (response.ok) {
-        if (activeSiteId) {
-          fetchScheduledArticles(activeSiteId)
-        }
-      }
-    } catch (error) {
-      console.error("Error deleting article:", error)
-    } finally {
-      setIsDeleting(false)
-      setIsDeleteDialogOpen(false)
-      setDeletingArticle(null)
-    }
-  }
-
-  // Handle save from edit dialog
-  const handleSaveArticle = () => {
-    if (activeSiteId) {
-      fetchScheduledArticles(activeSiteId)
-    }
-  }
-
-  // Open URL in new window
-  const openUrl = (url: string) => {
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer")
-    }
-  }
-
-  // Handle publish article
-  const handlePublishArticle = async (article: Article) => {
-    setIsPublishing(article.id)
-
-    try {
-      const publishData = {
-        id: article.id, // Tilføj artikel ID
-        site_id: article.site_id,
-        title: article.title,
-        teaser: article.teaser,
-        content: article.content,
-        img: article.img,
-        prompt_instructions: article.prompt_instruction,
-        instructions: article.instructions,
-        user_id: article.user_id,
-      }
-
-      console.log("Publishing article:", publishData)
-
-      const response = await fetch(`${API_HOST}/articles/write_article`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(publishData),
-      })
-
-      if (response.ok) {
-        console.log("Article published successfully")
-        if (activeSiteId) {
-          fetchScheduledArticles(activeSiteId)
-        }
-      } else {
-        console.error("Failed to publish article:", await response.text())
-      }
-    } catch (error) {
-      console.error("Error publishing article:", error)
-    } finally {
-      setIsPublishing(null)
-    }
-  }
-
   return (
     <ProtectedRoute>
       <SidebarProvider>
@@ -429,17 +337,17 @@ export default function PlanlagteArtiklerPage() {
                     </CardDescription>
                   </div>
                   <Badge variant="secondary" className="text-lg px-3 py-1">
-                    {scheduledArticles.length} artikler
+                    {articles.length} artikler
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {loading ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <span className="ml-2 text-muted-foreground">Indlæser planlagte artikler...</span>
                   </div>
-                ) : scheduledArticles.length === 0 ? (
+                ) : articles.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <Calendar className="h-12 w-12 text-muted-foreground mb-2" />
                     <p className="text-muted-foreground">
@@ -448,89 +356,30 @@ export default function PlanlagteArtiklerPage() {
                   </div>
                 ) : (
                   <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-[60px]">Status</TableHead>
-                          <TableHead className="w-[300px]">Titel</TableHead>
-                          <TableHead className="w-[100px]">Bruger</TableHead>
-                          <TableHead className="w-[120px]">Oprettet</TableHead>
-                          <TableHead className="w-[150px]">Planlagt</TableHead>
-                          <TableHead className="w-[150px]">Handlinger</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {scheduledArticles.map((article) => (
-                          <TableRow key={article.id}>
-                            <TableCell>{getStatusIcon(article.status)}</TableCell>
-                            <TableCell className="font-medium">
-                              <div className="max-w-[280px] truncate" title={article.title}>
-                                {article.title}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{getUserName(article.user_id)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm text-muted-foreground">{formatDate(article.created_at)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{formatDate(article.scheduled_publish_at)}</div>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteArticle(article)}
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-800 hover:bg-red-50"
-                                  title="Slet artikel"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleEditArticle(article)}
-                                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                                  title="Rediger artikel"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                {article.url && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => openUrl(article.url)}
-                                    className="h-8 w-8 p-0 text-green-600 hover:text-green-800 hover:bg-green-50"
-                                    title="Åbn artikel URL"
-                                  >
-                                    <ExternalLink className="h-4 w-4" />
-                                  </Button>
-                                )}
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() => handlePublishArticle(article)}
-                                  disabled={isPublishing === article.id}
-                                  className="ml-2 bg-green-600 hover:bg-green-700 text-white rounded-full px-4"
-                                  title="Udgiv artikel"
-                                >
-                                  {isPublishing === article.id ? (
-                                    <>
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                      Udgiver...
-                                    </>
-                                  ) : (
-                                    "Publish"
-                                  )}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                    <div className="space-y-4">
+                      {articles.map((article) => (
+                        <div key={article.id} className="flex items-center justify-between p-4 border rounded-lg">
+                          <div className="flex-1">
+                            <h3 className="font-semibold">{article.title}</h3>
+                            <p className="text-sm text-muted-foreground">{article.teaser}</p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge variant="secondary">{article.status}</Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(article.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(article)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => handleDelete(article.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -547,7 +396,7 @@ export default function PlanlagteArtiklerPage() {
           setIsEditDialogOpen(false)
           setEditingArticle(null)
         }}
-        onSave={handleSaveArticle}
+        onSave={handleSaveEdit}
       />
 
       {/* Delete Confirmation Dialog */}
@@ -561,10 +410,10 @@ export default function PlanlagteArtiklerPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Annuller</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
               {isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   Sletter...
                 </>
               ) : (
