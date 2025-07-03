@@ -90,7 +90,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     try {
       console.log("Starting Shutterstock auth...")
 
-      const response = await fetch(`https://dcd7-86-52-42-195.ngrok-free.app/auth/start-auth`, {
+      const response = await fetch(`https://832a-86-52-42-195.ngrok-free.app/auth/start-auth`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
